@@ -1,54 +1,41 @@
-const CACHE = "expense-v3";
+const CACHE = "expense-cache-v1";
 
-const APP_FILES = [
+const FILES = [
   "/",
   "/index.html",
   "/manifest.json",
   "/favicon.ico"
 ];
 
-self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(APP_FILES))
+self.addEventListener("install", e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(FILES))
   );
   self.skipWaiting();
 });
 
-self.addEventListener("activate", event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(k => k !== CACHE)
-            .map(k => caches.delete(k))
-      )
-    )
-  );
+self.addEventListener("activate", e => {
   self.clients.claim();
 });
 
-self.addEventListener("fetch", event => {
-  const req = event.request;
-
+self.addEventListener("fetch", e => {
   // Navigation requests
-  if (req.mode === "navigate") {
-    event.respondWith(
-      caches.match("/index.html").then(res => {
-        return res || fetch(req);
-      })
+  if (e.request.mode === "navigate") {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put("/index.html", copy));
+          return res;
+        })
+        .catch(() => caches.match("/index.html"))
     );
     return;
   }
 
-  // Assets
-  event.respondWith(
-    caches.match(req).then(res => {
-      return res || fetch(req).then(networkRes => {
-        return caches.open(CACHE).then(cache => {
-          cache.put(req, networkRes.clone());
-          return networkRes;
-        });
-      });
-    })
+  // Static assets
+  e.respondWith(
+    caches.match(e.request).then(res => res || fetch(e.request))
   );
 });
 
