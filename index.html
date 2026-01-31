@@ -1,0 +1,3004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#10b981">
+    <title>Expense Tracker Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <style>
+        /* --- RESET & BASE --- */
+        :root {
+            /* Light Theme: CLEAN WHITE Look (Reference Style) */
+            --bg-body: #f8fafc; /* Very subtle slate-white */
+            --bg-card: #ffffff;
+            --bg-input: #f3f4f6;
+            --text-main: #1f2937; /* Dark Grey */
+            --text-muted: #9ca3af;
+            --border: #e5e7eb;
+            
+            --accent: #10b981; /* Emerald Green */
+            --accent-light: #ecfdf5; /* Very light green for backgrounds */
+            --accent-text: #047857; /* Darker green for text */
+            
+            --header-bg: #ffffff;
+            --header-text: #1f2937;
+            
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --card-radius: 20px;
+        }
+
+        /* --- DARK MODE VARIABLES (Preserved as requested) --- */
+        body.dark {
+            --bg-body: #18181b; 
+            --bg-card: #27272a;
+            --bg-input: #3f3f46;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --border: #3f3f46;
+            
+            --accent: #4ade80;
+            --accent-light: #14532d;
+            --accent-text: #dcfce7;
+            
+            --header-bg: #27272a;
+            --header-text: #4ade80;
+            
+            --shadow: none;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        
+        body { 
+            background: var(--bg-body); 
+            color: var(--text-main); 
+            min-height: 100vh; 
+            padding-bottom: 90px; 
+            overflow-x: hidden; 
+            transition: background 0.3s, color 0.3s; 
+        }
+        
+        /* --- HEADER --- */
+        .header { 
+            background: var(--header-bg); 
+            padding: 16px 20px; 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Subtle separator */
+            transition: background 0.3s; 
+        }
+        .header h1 { font-size: 20px; font-weight: 700; color: var(--header-text); letter-spacing: -0.5px; }
+        .install-btn { padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; display: none; }
+
+        /* --- SLIDER LAYOUT --- */
+        .slider-container { display: flex; width: 500vw; transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+        .tab-content { width: 100vw; padding: 16px; min-height: calc(100vh - 140px); }
+        .container { max-width: 600px; margin: 0 auto; }
+
+        /* --- CARDS & STATS --- */
+        .card { 
+            background: var(--bg-card); 
+            border-radius: var(--card-radius); 
+            padding: 20px; 
+            margin-bottom: 16px; 
+            box-shadow: var(--shadow); 
+            border: 1px solid var(--border); 
+            transition: background 0.3s, border-color 0.3s; 
+        }
+        .card-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; letter-spacing: -0.3px; }
+        
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .stat { background: var(--bg-card); border-radius: var(--card-radius); padding: 18px; box-shadow: var(--shadow); border: 1px solid var(--border); position: relative; overflow: hidden; }
+        /* Solid accent for stats to pop */
+        .stat.g1 { background: var(--accent); color: white; border: none; }
+        .stat.g2 { background: var(--bg-card); color: var(--text-main); }
+        .stat.g2 .stat-value { color: var(--accent); }
+        
+        .stat-label { font-size: 12px; opacity: 0.9; margin-bottom: 4px; font-weight: 500; }
+        .stat-value { font-size: 24px; font-weight: 800; letter-spacing: -1px; }
+
+        /* --- LISTS --- */
+        .tx-item { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+        .tx-item:last-child { border-bottom: none; }
+        .tx-emoji { font-size: 24px; width: 48px; height: 48px; background: var(--bg-input); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .tx-info { flex: 1; min-width: 0; }
+        .tx-merchant { font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 2px; }
+        .tx-meta { font-size: 12px; color: var(--text-muted); }
+        .tx-amount { font-size: 16px; font-weight: 700; color: var(--text-main); }
+        .icon-btn { padding: 8px; border-radius: 8px; border: none; background: transparent; cursor: pointer; color: var(--text-muted); transition: color 0.2s; }
+        .icon-btn:hover { color: var(--accent); background: var(--bg-input); }
+        
+        /* --- CATEGORIES & BUDGETS --- */
+        .cat-item { padding: 14px; background: var(--bg-input); border-radius: 16px; margin-bottom: 10px; }
+        .cat-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .cat-name { font-size: 13px; font-weight: 600; color: var(--text-main); flex: 1; }
+        .cat-val { font-size: 13px; font-weight: 700; color: var(--text-muted); }
+        
+        /* --- BOTTOM NAV --- */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 75px; background: var(--bg-card); display: flex; justify-content: space-around; align-items: center; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); z-index: 1000; border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); transition: background 0.3s; }
+        .nav-item { flex: 1; height: 100%; border: none; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; color: var(--text-muted); cursor: pointer; transition: all 0.2s; }
+        .nav-icon { font-size: 24px; line-height: 1; transition: transform 0.2s; }
+        .nav-label { font-size: 11px; font-weight: 600; }
+        
+        .nav-item.active { color: var(--accent); }
+        .nav-item.active .nav-icon { transform: translateY(-3px); }
+
+        /* --- FAB --- */
+        .fab-container { position: fixed; bottom: 95px; right: 20px; display: flex; flex-direction: column; gap: 14px; z-index: 900; }
+        .fab { width: 56px; height: 56px; border-radius: 28px; border: none; color: white; font-size: 26px; cursor: pointer; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+        .fab:active { transform: scale(0.95); }
+        .fab.primary { background: var(--accent); }
+        .fab.secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); width: 48px; height: 48px; font-size: 20px; box-shadow: var(--shadow); }
+
+        /* --- MODAL --- */
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 2000; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
+        .modal.show { display: flex; animation: fadeIn 0.2s; }
+        .modal-content { background: var(--bg-card); border-radius: 24px; padding: 24px; width: 100%; max-width: 400px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        
+        .fg { margin-bottom: 16px; }
+        .fl { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+        .fi, .fs, .ft { width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 12px; font-size: 16px; background: var(--bg-input); color: var(--text-main); outline: none; transition: border-color 0.2s; -webkit-appearance: none; }
+        .fi:focus, .fs:focus, .ft:focus { border-color: var(--accent); }
+        
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+        .btn-p { background: var(--accent); color: white; }
+        .btn-s { background: transparent; color: var(--text-muted); margin-top: 4px; }
+        
+        /* --- UTILS --- */
+        .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 12px 24px; border-radius: 30px; font-size: 13px; z-index: 3000; opacity: 0; pointer-events: none; transition: opacity 0.3s; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .toast.show { opacity: 1; }
+        .search-bar { background: var(--bg-input); border-radius: 14px; padding: 12px 16px; margin-bottom: 16px; display: flex; gap: 10px; align-items: center; }
+        .search-bar input { flex: 1; border: none; outline: none; font-size: 15px; background: transparent; color: var(--text-main); }
+        .chip { padding: 8px 18px; border-radius: 20px; background: var(--bg-input); color: var(--text-muted); font-size: 13px; font-weight: 600; border: 1px solid transparent; transition: all 0.2s; display: inline-block; margin-right: 8px; cursor: pointer; }
+        .chip.active { background: var(--accent-light); color: var(--accent-text); border-color: var(--accent-light); }
+        
+        /* New Category Manager Styling */
+        .cat-manage-item { display: flex; align-items: center; padding: 12px; background: var(--bg-input); border-radius: 12px; margin-bottom: 8px; }
+        .cat-manage-emoji { font-size: 20px; width: 36px; text-align: center; }
+        .cat-manage-name { flex: 1; font-weight: 500; color: var(--text-main); font-size: 14px; }
+        .cat-del-btn { color: #ef4444; padding: 8px; background: none; border: none; cursor: pointer; font-size: 16px; }
+    
+/* --- SVG TAB ICON SUPPORT --- */
+.nav-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-icon svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    transition: transform 0.2s;
+}
+
+
+/* FAB Toggle */
+.fab-group.hidden {
+    display: none;
+}
+
+
+/* FAB Auto-hide on scroll */
+.fab-container.auto-hidden {
+    transform: translateY(140px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+</style>
+<link rel="icon" href="favicon.ico">
+</head>
+<body>
+
+    <div class="header">
+        <h1>Expense Tracker</h1>
+        <button class="install-btn" id="installBtn" onclick="installApp()">⬇️ Install</button>
+    </div>
+
+    <div class="slider-container" id="mainSlider">
+        
+        <div class="tab-content" id="tab0">
+            <div class="container">
+                <div class="stats">
+                    <div class="stat g1"><div class="stat-label" style="color:rgba(255,255,255,0.8)">This Month</div><div class="stat-value" id="statMonth">₹0</div></div>
+                    <div class="stat g2"><div class="stat-label">Today</div><div class="stat-value" id="statToday">₹0</div></div>
+                </div>
+                
+                
+                <div class="card">
+                    <div class="card-title">Monthly Summary</div>
+                    <div id="monthlySummary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
+                </div>
+
+                
+                <div class="card">
+                    <div class="card-title">Monthly Budget</div>
+                    <div id="budgetOverview"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Recent Transactions</div>
+                    <div id="recentList"></div>
+                    <button class="btn btn-s" onclick="switchTab(1)" style="font-size:13px; color:var(--accent)">View All Transactions →</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab1">
+            <div class="container">
+                
+<div style="display:flex;gap:8px;margin-bottom:12px;">
+    <button class="chip" onclick="openCalendarView()">📅 Calendar View</button>
+</div>
+<div class="search-bar">
+                    <span style="font-size: 18px; opacity: 0.4">🔍</span>
+                    <input type="text" id="searchBox" placeholder="Search transactions..." oninput="filterTx()">
+                </div>
+                <div style="overflow-x: auto; white-space: nowrap; padding-bottom: 5px; margin-bottom: 10px;" id="periodChips"></div>
+                <div class="card">
+                    <div class="card-title">Income</div>
+                    <div id="incomeList"></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Expenses</div>
+                    <div id="txList"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab2">
+            <div class="container">
+                <div class="card">
+                    <div class="card-title">Spending Trend</div>
+                    <canvas id="chartTrend"></canvas>
+                </div>
+                
+                <div class="card">
+                    <div class="card-title">Income vs Expense (Last 6 Months)</div>
+                    <canvas id="chartIncomeExpense"></canvas>
+                </div>
+<div class="card">
+                    <div class="card-title">Category Breakdown</div>
+                    <canvas id="chartCat"></canvas>
+                </div>
+                <div class="card">
+                    <div class="card-title">Insights</div>
+                    <div id="insightsContent" style="font-size: 14px; line-height: 1.6; color: var(--text-muted)"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab3">
+            <div class="container">
+                <div class="card">
+                    <div class="card-title">
+                        <span>Category Budgets</span>
+                        <button class="icon-btn" onclick="openModal('budgetModal')">✏️</button>
+                    </div>
+                    <div id="budgetList"></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">
+                        <span>Recurring</span>
+                        <button class="icon-btn" onclick="openModal('recModal')">➕</button>
+                    </div>
+                    <div id="recList"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab4">
+            <div class="container">
+                <div class="card">
+                    <div class="card-title">App Settings</div>
+                    <button class="btn btn-p" onclick="toggleDark()" style="background:var(--bg-input); color:var(--text-main); margin-bottom:12px; border:1px solid var(--border)">🌓 Toggle Dark Mode</button>
+                    <button class="btn btn-p" onclick="openModal('catModal')" style="background:var(--bg-input); color:var(--text-main); border:1px solid var(--border)">🏷️ Manage Categories</button>
+                </div>
+                <div class="card">
+                    <div class="card-title">Data</div>
+                    <button class="btn btn-s" onclick="exportJSON()" style="text-align:left; border:1px solid var(--border); margin-bottom:8px">📥 Export Backup</button>
+                    <button class="btn btn-s" onclick="importData()" style="text-align:left; border:1px solid var(--border); margin-bottom:8px">📤 Import Backup</button>
+                    <button class="btn btn-s" onclick="openModal('syncModal')" style="text-align:left; border:1px solid var(--border)">☁️ Cloud Sync</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="fab-container">
+        <div id="fabSecondaryGroup" class="fab-group hidden">
+            <button class="fab secondary" onclick="openModal('parseModal')">📧</button>
+            <button class="fab secondary" onclick="openModal('incomeModal')">💰</button>
+            <button class="fab secondary" onclick="openModal('quickAddModal')">⚡</button>
+            <button class="fab secondary" onclick="openModal('addModal')">➕</button>
+        </div>
+        <button class="fab primary" onclick="toggleFabMenu()">☰</button>
+    </div>
+
+    <div class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab(0)">
+            <span class="nav-icon">
+<svg viewBox="0 0 24 24">
+<path d="M3 11l9-7 9 7"></path>
+<path d="M9 22V12h6v10"></path>
+</svg>
+</span><span class="nav-label">Home</span>
+        </button>
+        <button class="nav-item" onclick="switchTab(1)">
+            <span class="nav-icon">
+<svg viewBox="0 0 24 24">
+<rect x="2" y="5" width="20" height="14" rx="2"></rect>
+<line x1="2" y1="10" x2="22" y2="10"></line>
+</svg>
+</span><span class="nav-label">History</span>
+        </button>
+        <button class="nav-item" onclick="switchTab(2)">
+            <span class="nav-icon">
+<svg viewBox="0 0 24 24">
+<line x1="6" y1="20" x2="6" y2="10"></line>
+<line x1="12" y1="20" x2="12" y2="4"></line>
+<line x1="18" y1="20" x2="18" y2="14"></line>
+</svg>
+</span><span class="nav-label">Analysis</span>
+        </button>
+        <button class="nav-item" onclick="switchTab(3)">
+            <span class="nav-icon">
+<svg viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="9"></circle>
+<circle cx="12" cy="12" r="5"></circle>
+<circle cx="12" cy="12" r="2"></circle>
+</svg>
+</span><span class="nav-label">Plan</span>
+        </button>
+        <button class="nav-item" onclick="switchTab(4)">
+            <span class="nav-icon">
+<svg viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="3"></circle>
+<path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1"></path>
+</svg>
+</span><span class="nav-label">Settings</span>
+        </button>
+    </div>
+
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <h3 class="card-title">Add Transaction</h3>
+            <div class="fg"><label class="fl">Amount (₹)</label><input type="number" class="fi" id="inAmt" step="1" placeholder="0" style="font-size:20px; font-weight:700"></div>
+            <div class="fg"><label class="fl">Date</label><input type="date" class="fi" id="inDate"></div>
+            <div class="fg"><label class="fl">Merchant</label><input class="fi" id="inMer" placeholder="Description"></div>
+            <div class="fg"><label class="fl">Category</label><select class="fs" id="inCat"></select></div>
+            <div class="fg"><label class="fl">Payment</label><select class="fs" id="inPay"><option value="upi">UPI</option><option value="card">Card</option><option value="cash">Cash</option></select></div>
+            <button class="btn btn-p" onclick="addTx()">Save Transaction</button>
+            <button class="btn btn-s" onclick="closeModal('addModal')">Cancel</button>
+        </div>
+    </div>
+    
+    <div class="modal" id="quickAddModal"><div class="modal-content"><h3 class="card-title">Quick Add ⚡</h3><div class="fg"><label class="fl">Type naturally</label><textarea class="ft" id="quickInput" placeholder="Ex: 150 lunch, 500 uber, amazon 2000"></textarea></div><button class="btn btn-p" onclick="quickAddTx()">Process</button><button class="btn btn-s" onclick="closeModal('quickAddModal')">Cancel</button></div></div>
+    <div class="modal" id="parseModal"><div class="modal-content"><h3 class="card-title">Parse SMS</h3><div class="fg"><textarea class="ft" id="inParse" placeholder="Paste bank SMS here..."></textarea></div><button class="btn btn-p" onclick="parseTx()">Parse</button><button class="btn btn-s" onclick="closeModal('parseModal')">Cancel</button></div></div>
+    <div class="modal" id="editModal"><div class="modal-content"><h3 class="card-title">Edit Transaction</h3><input type="hidden" id="editId"><div class="fg"><label class="fl">Amount</label><input type="number" class="fi" id="editAmt"></div><div class="fg"><label class="fl">Date</label><input type="date" class="fi" id="editDate"></div><div class="fg"><label class="fl">Merchant</label><input class="fi" id="editMer"></div><div class="fg"><label class="fl">Category</label><select class="fs" id="editCat"></select></div><div class="fg"><label class="fl">Payment</label><select class="fs" id="editPay"><option value="upi">UPI</option><option value="card">Card</option><option value="cash">Cash</option><option value="auto">Auto</option></select></div> <button class="btn btn-p" onclick="saveEditTx()">Update</button><button class="btn btn-s" onclick="closeModal('editModal')">Cancel</button></div></div>
+    <div class="modal" id="budgetModal"><div class="modal-content"><h3 class="card-title">Set Budgets</h3><div id="budgetInputs" style="max-height: 400px; overflow-y: auto;"></div><button class="btn btn-p" onclick="saveBudgets()">Save Changes</button><button class="btn btn-s" onclick="closeModal('budgetModal')">Cancel</button></div></div>
+    <div class="modal" id="recModal"><div class="modal-content"><h3 class="card-title">New Recurring</h3><div class="fg"><label class="fl">Amount</label><input type="number" class="fi" id="inRecAmt"></div><div class="fg"><label class="fl">Description</label><input class="fi" id="inRecDesc"></div><div class="fg"><label class="fl">Category</label><select class="fs" id="inRecCat"></select></div><div class="fg"><label class="fl">Frequency</label><select class="fs" id="inRecFreq"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div><div class="fg"><label class="fl">Start Date</label><input type="date" class="fi" id="inRecDate"></div><button class="btn btn-p" onclick="addRec()">Create</button><button class="btn btn-s" onclick="closeModal('recModal')">Cancel</button></div></div>
+    <div class="modal" id="syncModal"><div class="modal-content"><h3 class="card-title">Cloud Sync</h3><div class="fg"><label class="fl">Backend URL</label><input class="fi" id="inBackend" placeholder="http://..." value=""></div><button class="btn btn-p" onclick="syncData()">Sync Now</button><button class="btn btn-s" onclick="closeModal('syncModal')">Close</button></div></div>
+
+    <div class="modal" id="catModal">
+        <div class="modal-content">
+            <h3 class="card-title">Manage Categories</h3>
+            <div class="fg" style="display:flex; gap:8px;">
+                <input class="fi" id="newCatEmoji" placeholder="Emoji" style="width:60px; text-align:center;">
+                <input class="fi" id="newCatName" placeholder="New Category Name">
+                <button class="btn-p" onclick="addNewCategory()" style="width:auto; padding:0 16px; margin:0;">+</button>
+            </div>
+            <div style="height:1px; background:var(--border); margin:16px 0;"></div>
+            <div id="catListMgr" style="max-height: 300px; overflow-y: auto;"></div>
+            <button class="btn btn-s" onclick="closeModal('catModal')">Close</button>
+        </div>
+    </div>
+
+    
+<div class="modal" id="calendarModal">
+    <div class="modal-content">
+        <h3 class="card-title">Monthly Expense Calendar</h3>
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+            <button class="btn btn-s" onclick="changeCalMonth(-1)">←</button>
+            <div id="calTitle" style="font-weight:600;"></div>
+            <button class="btn btn-s" onclick="changeCalMonth(1)">→</button>
+        </div>
+        <div id="calendarGrid"></div>
+        <button class="btn btn-s" onclick="closeModal('calendarModal')">Close</button>
+    </div>
+</div>
+
+
+<div class="modal" id="incomeModal">
+    <div class="modal-content">
+        <h3 class="card-title">Add Income</h3>
+        <div class="fg">
+            <label class="fl">Amount (₹)</label>
+            <input type="number" class="fi" id="incomeAmt" step="1" placeholder="0">
+        </div>
+        <div class="fg">
+            <label class="fl">Source</label>
+            <input class="fi" id="incomeSource" placeholder="Salary / Freelance / Other">
+        </div>
+        <div class="fg">
+            <label class="fl">Date</label>
+            <input type="date" class="fi" id="incomeDate">
+        </div>
+        <button class="btn btn-p" onclick="addIncome()">Save Income</button>
+        <button class="btn btn-s" onclick="closeModal('incomeModal')">Cancel</button>
+    </div>
+</div>
+
+
+<div class="modal" id="editIncomeModal">
+    <div class="modal-content">
+        <h3 class="card-title">Edit Income</h3>
+        <input type="hidden" id="editIncomeId">
+        <div class="fg">
+            <label class="fl">Amount</label>
+            <input type="number" class="fi" id="editIncomeAmt">
+        </div>
+        <div class="fg">
+            <label class="fl">Source</label>
+            <input class="fi" id="editIncomeSource">
+        </div>
+        <div class="fg">
+            <label class="fl">Date</label>
+            <input type="date" class="fi" id="editIncomeDate">
+        </div>
+        <button class="btn btn-p" onclick="saveIncomeEdit()">Update</button>
+        <button class="btn btn-s" onclick="closeModal('editIncomeModal')">Cancel</button>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+    <script>
+        // --- DATA & STATE ---
+        const DEFAULT_CATS = {
+            food: { name: 'Food', emoji: '🍔' },
+            transport: { name: 'Transport', emoji: '🚗' },
+            shopping: { name: 'Shopping', emoji: '🛍️' },
+            bills: { name: 'Bills', emoji: '💡' },
+            entertainment: { name: 'Fun', emoji: '🎬' },
+            health: { name: 'Health', emoji: '⚕️' },
+            education: { name: 'Education', emoji: '🎓' },
+            other: { name: 'Other', emoji: '📦' }
+        };
+
+        let categories = JSON.parse(localStorage.getItem('expenseCats')) || DEFAULT_CATS;
+        let transactions = JSON.parse(localStorage.getItem('expenseTxs')) || [];
+        let budgets = JSON.parse(localStorage.getItem('expenseBudgets')) || { food: 5000, transport: 2000, shopping: 3000, bills: 2500, entertainment: 1500, health: 2000, education: 5000, other: 1000 };
+        let recurring = JSON.parse(localStorage.getItem('expenseRec')) || [];
+        let filters = { period: 'month', search: '' };
+        let charts = {};
+        let currentTab = 0;
+
+        // --- CORE FUNCTIONS ---
+        function save() {
+            localStorage.setItem('expenseCats', JSON.stringify(categories));
+            localStorage.setItem('expenseTxs', JSON.stringify(transactions));
+            localStorage.setItem('expenseBudgets', JSON.stringify(budgets));
+            localStorage.setItem('expenseRec', JSON.stringify(recurring));
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function switchTab(n) {
+            currentTab = n;
+            document.getElementById('mainSlider').style.transform = `translateX(-${n * 20}%)`;
+            document.querySelectorAll('.nav-item').forEach((el, i) => el.classList.toggle('active', i === n));
+            render(n);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- SWIPE LOGIC ---
+        let touchStartX = 0; let touchEndX = 0;
+        document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+        document.addEventListener('touchend', e => { touchEndX = e.changedTouches[0].screenX; handleSwipe(); }, {passive: true});
+        function handleSwipe() {
+            if (touchEndX < touchStartX - 50 && currentTab < 4) switchTab(currentTab + 1);
+            if (touchEndX > touchStartX + 50 && currentTab > 0) switchTab(currentTab - 1);
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+        function openModal(id) {
+            const m = document.getElementById(id);
+            m.classList.add('show');
+            
+            // Populate Dynamic Selects
+            if(['addModal', 'editModal', 'recModal'].includes(id)) {
+                const selId = id === 'addModal' ? 'inCat' : id === 'editModal' ? 'editCat' : 'inRecCat';
+                const sel = document.getElementById(selId);
+                sel.innerHTML = Object.entries(categories).map(([k, v]) => `<option value="${k}">${v.emoji} ${v.name}</option>`).join('');
+            }
+            if (id === 'budgetModal') {
+                document.getElementById('budgetInputs').innerHTML = Object.entries(categories).map(([k, v]) => 
+                    `<div class="fg" style="margin-bottom:8px"><label class="fl" style="font-weight:400">${v.emoji} ${v.name}</label><input type="number" class="fi" style="padding:10px" id="bud_${k}" value="${budgets[k] || 0}"></div>`
+                ).join('');
+            }
+            if (id === 'catModal') renderCatManager();
+            if (id === 'syncModal') document.getElementById('inBackend').value = localStorage.getItem('backendUrl') || '';
+        }
+
+        // --- CATEGORY MANAGEMENT ---
+        function renderCatManager() {
+            const list = document.getElementById('catListMgr');
+            list.innerHTML = Object.entries(categories).map(([k, v]) => `
+                <div class="cat-manage-item">
+                    <div class="cat-manage-emoji">${v.emoji}</div>
+                    <div class="cat-manage-name">${v.name}</div>
+                    ${!DEFAULT_CATS[k] ? `<button class="cat-del-btn" onclick="deleteCategory('${k}')">🗑</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function addNewCategory() {
+            const emoji = document.getElementById('newCatEmoji').value || '🏷️';
+            const name = document.getElementById('newCatName').value.trim();
+            if (!name) return showToast('Enter name');
+            const id = name.toLowerCase().replace(/\s+/g, '_');
+            
+            if (categories[id]) return showToast('Exists!');
+            categories[id] = { name, emoji };
+            budgets[id] = 0; // Init budget
+            save();
+            document.getElementById('newCatEmoji').value = '';
+            document.getElementById('newCatName').value = '';
+            renderCatManager();
+            showToast('Category Added');
+        }
+
+        function deleteCategory(id) {
+            if (confirm('Delete category? Txs will be kept but marked unknown.')) {
+                delete categories[id];
+                save();
+                renderCatManager();
+            }
+        }
+
+        // --- TRANSACTION LOGIC ---
+        function addTx() {
+            const amt = parseFloat(document.getElementById('inAmt').value);
+            const mer = document.getElementById('inMer').value.trim();
+            if (!amt || !mer) return showToast('Fill amount & merchant');
+
+            const dateInput = document.getElementById('inDate').value;
+            const txDate = dateInput ? new Date(dateInput).getTime() : Date.now();
+
+            // Smart auto-category based on merchant
+            let cat = document.getElementById('inCat').value;
+            const text = mer.toLowerCase();
+
+            if (cat === 'other') {
+                if (/swiggy|zomato|restaurant|cafe|food|hotel|lunch|dinner/.test(text)) cat = 'food';
+                else if (/uber|ola|rapido|fuel|petrol|metro|bus|cab/.test(text)) cat = 'transport';
+                else if (/amazon|flipkart|myntra|shopping|store/.test(text)) cat = 'shopping';
+                else if (/electric|water|broadband|bill|recharge/.test(text)) cat = 'bills';
+                else if (/movie|netflix|prime|game|cinema/.test(text)) cat = 'entertainment';
+                else if (/pharmacy|hospital|clinic|medical/.test(text)) cat = 'health';
+                else if (/course|college|school|book/.test(text)) cat = 'education';
+            }
+
+            transactions.unshift({
+                id: Date.now() + '',
+                amount: amt,
+                merchant: mer,
+                category: cat,
+                paymentMethod: document.getElementById('inPay').value,
+                date: txDate,
+                source: 'manual'
+            });
+
+            save();
+            closeModal('addModal');
+            document.getElementById('inAmt').value = '';
+            document.getElementById('inMer').value = '';
+            document.getElementById('inDate').value = '';
+            showToast('Saved!');
+            
+/* ===== Calendar Expense View ===== */
+let calDate = new Date();
+
+function openCalendarView() {
+    calDate = new Date();
+    renderCalendar();
+    openModal('calendarModal');
+}
+
+function changeCalMonth(delta) {
+    calDate.setMonth(calDate.getMonth() + delta);
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const year = calDate.getFullYear();
+    const month = calDate.getMonth();
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    document.getElementById('calTitle').textContent =
+        calDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+    const dailyTotals = {};
+    transactions.forEach(t => {
+        const d = new Date(t.date);
+        if (d.getMonth() === month && d.getFullYear() === year) {
+            dailyTotals[d.getDate()] = (dailyTotals[d.getDate()] || 0) + t.amount;
+        }
+    });
+
+    let grid = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">';
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d =>
+        grid += `<div style="font-size:12px;text-align:center;color:var(--text-muted)">${d}</div>`
+    );
+
+    for (let i = 0; i < firstDay; i++) grid += '<div></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const total = dailyTotals[d] || 0;
+        grid += `
+        <div style="padding:8px;border-radius:8px;background:var(--bg-input);text-align:center;">
+            <div style="font-weight:600">${d}</div>
+            <div style="font-size:11px;color:var(--accent)">₹${total || ''}</div>
+        </div>`;
+    }
+
+    grid += '</div>';
+    document.getElementById('calendarGrid').innerHTML = grid;
+}
+
+/* ===== Swipe to delete/edit ===== */
+function attachSwipeHandlers() {
+    document.querySelectorAll('.tx-item').forEach(item => {
+        let startX = 0;
+        item.addEventListener('touchstart', e => {
+            startX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        item.addEventListener('touchend', e => {
+            const diff = e.changedTouches[0].screenX - startX;
+            const editBtn = item.querySelector('button.icon-btn');
+            const deleteBtn = item.querySelectorAll('button.icon-btn')[1];
+
+            if (diff < -60 && deleteBtn) deleteBtn.click(); // swipe left delete
+            if (diff > 60 && editBtn) editBtn.click();       // swipe right edit
+        }, { passive: true });
+    });
+}
+
+/* ===== Faster loading for large histories ===== */
+let txRenderLimit = 100;
+
+function renderTxList(containerId, list, limit) {
+    const el = document.getElementById(containerId);
+    const effectiveLimit = limit || txRenderLimit;
+    const data = list.slice(0, effectiveLimit);
+
+    el.innerHTML = data.length ? data.map(t => {
+        const cat = categories[t.category] || { name: 'Unknown', emoji: '❓' };
+        return `
+        <div class="tx-item">
+            <div class="tx-emoji">${cat.emoji}</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${t.merchant}</div>
+                <div class="tx-meta">${new Date(t.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})} • ${t.paymentMethod.toUpperCase()}</div>
+            </div>
+            <div class="tx-amount">₹${t.amount.toLocaleString('en-IN')}</div>
+            ${!limit ? `<div class="tx-actions"><button class="icon-btn" onclick="openEditTx('${t.id}')">✎</button><button class="icon-btn" onclick="deleteTx('${t.id}')" style="color:#ef4444">🗑</button></div>` : ''}
+        </div>`;
+    }).join('') : '<div style="text-align:center;padding:20px;color:var(--text-muted)">No transactions found</div>';
+
+    if (list.length > effectiveLimit) {
+        el.innerHTML += `<button class="btn btn-s" onclick="loadMoreTx()">Load more</button>`;
+    }
+
+    attachSwipeHandlers();
+}
+
+function loadMoreTx() {
+    txRenderLimit += 100;
+    render(1);
+}
+
+
+/* ===== Income & Savings Tracking ===== */
+let incomes = JSON.parse(localStorage.getItem('expenseIncome')) || [];
+
+function saveIncome() {
+    localStorage.setItem('expenseIncome', JSON.stringify(incomes));
+}
+
+function addIncome() {
+    const amt = parseFloat(document.getElementById('incomeAmt').value);
+    const src = document.getElementById('incomeSource').value.trim();
+    const dateInput = document.getElementById('incomeDate').value;
+
+    if (!amt || !src) return showToast('Enter amount & source');
+
+    const date = dateInput ? new Date(dateInput).getTime() : Date.now();
+
+    incomes.unshift({
+        id: Date.now() + '',
+        amount: amt,
+        source: src,
+        date
+    });
+
+    saveIncome();
+    closeModal('incomeModal');
+
+    document.getElementById('incomeAmt').value = '';
+    document.getElementById('incomeSource').value = '';
+    document.getElementById('incomeDate').value = '';
+
+    showToast('Income Added');
+    
+/* FAB menu toggle */
+let fabOpen = false;
+
+function toggleFabMenu() {
+    fabOpen = !fabOpen;
+    const group = document.getElementById('fabSecondaryGroup');
+    group.classList.toggle('hidden', !fabOpen);
+}
+
+
+/* ===== FAB Auto-hide on scroll ===== */
+let lastScrollY = window.scrollY;
+
+window.addEventListener('scroll', () => {
+    const fab = document.querySelector('.fab-container');
+    const currentY = window.scrollY;
+
+    if (!fab) return;
+
+    if (currentY > lastScrollY + 10) {
+        // scrolling down → hide
+        fab.classList.add('auto-hidden');
+    } else if (currentY < lastScrollY - 10) {
+        // scrolling up → show
+        fab.classList.remove('auto-hidden');
+    }
+
+    lastScrollY = currentY;
+});
+
+
+/* ===== Monthly Summary Cards ===== */
+function renderMonthlySummary() {
+    const now = new Date();
+    const container = document.getElementById('monthlySummary');
+    if (!container) return;
+
+    let cards = '';
+    for (let i = 2; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const total = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const labelDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = labelDate.toLocaleDateString('en-IN', { month: 'short' });
+
+        cards += `
+            <div style="background:var(--bg-input);padding:12px;border-radius:12px;text-align:center;">
+                <div style="font-size:12px;color:var(--text-muted)">${label}</div>
+                <div style="font-weight:700;">₹${total.toLocaleString('en-IN')}</div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = cards;
+}
+
+renderMonthlySummary();
+renderIncomeExpenseChart();
+
+/* ===== Income vs Expense Chart ===== */
+function renderIncomeExpenseChart() {
+    const ctx = document.getElementById('chartIncomeExpense');
+    if (!ctx) return;
+
+    const now = new Date();
+    const labels = [];
+    const expenseData = [];
+    const incomeData = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const expenseTotal = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const incomeTotal = incomes
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        labels.push(new Date(now.getFullYear(), now.getMonth() - i, 1)
+            .toLocaleDateString('en-IN', { month: 'short' }));
+
+        expenseData.push(expenseTotal);
+        incomeData.push(incomeTotal);
+    }
+
+    if (window.chartIncomeExpenseObj) {
+        window.chartIncomeExpenseObj.destroy();
+    }
+
+    window.chartIncomeExpenseObj = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Expense',
+                    data: expenseData,
+                    borderColor: '#f43f5e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            
+scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { display: false }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+
+        }
+    });
+}
+
+
+/* ===== Income List in History ===== */
+function renderIncomeList() {
+    const el = document.getElementById('incomeList');
+    if (!el || !incomes) return;
+
+    el.innerHTML = incomes.length ? incomes.map(i => `
+        <div class="tx-item">
+            <div class="tx-emoji">💰</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${i.source}</div>
+                <div class="tx-meta">${new Date(i.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})}</div>
+            </div>
+            <div class="tx-amount">₹${i.amount.toLocaleString('en-IN')}</div>
+            <div class="tx-actions">
+                <button class="icon-btn" onclick="openEditIncome('${i.id}')">✎</button>
+                <button class="icon-btn" onclick="deleteIncome('${i.id}')" style="color:#ef4444">🗑</button>
+            </div>
+        </div>
+    `).join('') : '<div style="padding:10px;color:var(--text-muted)">No income records</div>';
+}
+
+function deleteIncome(id) {
+    if (!confirm('Delete income?')) return;
+    incomes = incomes.filter(i => i.id !== id);
+    saveIncome();
+    render(1);
+}
+
+function openEditIncome(id) {
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    document.getElementById('editIncomeId').value = inc.id;
+    document.getElementById('editIncomeAmt').value = inc.amount;
+    document.getElementById('editIncomeSource').value = inc.source;
+
+    const d = new Date(inc.date);
+    document.getElementById('editIncomeDate').value = d.toISOString().slice(0,10);
+
+    openModal('editIncomeModal');
+}
+
+function saveIncomeEdit() {
+    const id = document.getElementById('editIncomeId').value;
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    inc.amount = parseFloat(document.getElementById('editIncomeAmt').value);
+    inc.source = document.getElementById('editIncomeSource').value;
+
+    const dateInput = document.getElementById('editIncomeDate').value;
+    if (dateInput) inc.date = new Date(dateInput).getTime();
+
+    saveIncome();
+    closeModal('editIncomeModal');
+    showToast('Income updated');
+    render(1);
+}
+
+render(0);
+}
+
+function getMonthlyIncome() {
+    const now = new Date();
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    return incomes
+        .filter(i => i.date >= startMonth)
+        .reduce((s, i) => s + i.amount, 0);
+}
+
+
+/* FAB menu toggle */
+let fabOpen = false;
+
+function toggleFabMenu() {
+    fabOpen = !fabOpen;
+    const group = document.getElementById('fabSecondaryGroup');
+    group.classList.toggle('hidden', !fabOpen);
+}
+
+
+/* ===== FAB Auto-hide on scroll ===== */
+let lastScrollY = window.scrollY;
+
+window.addEventListener('scroll', () => {
+    const fab = document.querySelector('.fab-container');
+    const currentY = window.scrollY;
+
+    if (!fab) return;
+
+    if (currentY > lastScrollY + 10) {
+        // scrolling down → hide
+        fab.classList.add('auto-hidden');
+    } else if (currentY < lastScrollY - 10) {
+        // scrolling up → show
+        fab.classList.remove('auto-hidden');
+    }
+
+    lastScrollY = currentY;
+});
+
+
+/* ===== Monthly Summary Cards ===== */
+function renderMonthlySummary() {
+    const now = new Date();
+    const container = document.getElementById('monthlySummary');
+    if (!container) return;
+
+    let cards = '';
+    for (let i = 2; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const total = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const labelDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = labelDate.toLocaleDateString('en-IN', { month: 'short' });
+
+        cards += `
+            <div style="background:var(--bg-input);padding:12px;border-radius:12px;text-align:center;">
+                <div style="font-size:12px;color:var(--text-muted)">${label}</div>
+                <div style="font-weight:700;">₹${total.toLocaleString('en-IN')}</div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = cards;
+}
+
+renderMonthlySummary();
+renderIncomeExpenseChart();
+
+/* ===== Income vs Expense Chart ===== */
+function renderIncomeExpenseChart() {
+    const ctx = document.getElementById('chartIncomeExpense');
+    if (!ctx) return;
+
+    const now = new Date();
+    const labels = [];
+    const expenseData = [];
+    const incomeData = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const expenseTotal = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const incomeTotal = incomes
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        labels.push(new Date(now.getFullYear(), now.getMonth() - i, 1)
+            .toLocaleDateString('en-IN', { month: 'short' }));
+
+        expenseData.push(expenseTotal);
+        incomeData.push(incomeTotal);
+    }
+
+    if (window.chartIncomeExpenseObj) {
+        window.chartIncomeExpenseObj.destroy();
+    }
+
+    window.chartIncomeExpenseObj = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Expense',
+                    data: expenseData,
+                    borderColor: '#f43f5e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            
+scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { display: false }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+
+        }
+    });
+}
+
+
+/* ===== Income List in History ===== */
+function renderIncomeList() {
+    const el = document.getElementById('incomeList');
+    if (!el || !incomes) return;
+
+    el.innerHTML = incomes.length ? incomes.map(i => `
+        <div class="tx-item">
+            <div class="tx-emoji">💰</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${i.source}</div>
+                <div class="tx-meta">${new Date(i.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})}</div>
+            </div>
+            <div class="tx-amount">₹${i.amount.toLocaleString('en-IN')}</div>
+            <div class="tx-actions">
+                <button class="icon-btn" onclick="openEditIncome('${i.id}')">✎</button>
+                <button class="icon-btn" onclick="deleteIncome('${i.id}')" style="color:#ef4444">🗑</button>
+            </div>
+        </div>
+    `).join('') : '<div style="padding:10px;color:var(--text-muted)">No income records</div>';
+}
+
+function deleteIncome(id) {
+    if (!confirm('Delete income?')) return;
+    incomes = incomes.filter(i => i.id !== id);
+    saveIncome();
+    render(1);
+}
+
+function openEditIncome(id) {
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    document.getElementById('editIncomeId').value = inc.id;
+    document.getElementById('editIncomeAmt').value = inc.amount;
+    document.getElementById('editIncomeSource').value = inc.source;
+
+    const d = new Date(inc.date);
+    document.getElementById('editIncomeDate').value = d.toISOString().slice(0,10);
+
+    openModal('editIncomeModal');
+}
+
+function saveIncomeEdit() {
+    const id = document.getElementById('editIncomeId').value;
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    inc.amount = parseFloat(document.getElementById('editIncomeAmt').value);
+    inc.source = document.getElementById('editIncomeSource').value;
+
+    const dateInput = document.getElementById('editIncomeDate').value;
+    if (dateInput) inc.date = new Date(dateInput).getTime();
+
+    saveIncome();
+    closeModal('editIncomeModal');
+    showToast('Income updated');
+    render(1);
+}
+
+render(0);
+        }
+        function deleteTx(id) { if(confirm('Delete transaction?')) { transactions = transactions.filter(t => t.id !== id); save(); render(currentTab); showToast('Deleted'); } }
+        function openEditTx(id) {
+            const tx = transactions.find(t => t.id === id);
+            if(!tx) return;
+
+            document.getElementById('editId').value = tx.id;
+            document.getElementById('editAmt').value = tx.amount;
+            document.getElementById('editMer').value = tx.merchant;
+
+            const d = new Date(tx.date);
+            document.getElementById('editDate').value = d.toISOString().slice(0,10);
+
+            openModal('editModal');
+
+            document.getElementById('editCat').value = tx.category;
+            document.getElementById('editPay').value = tx.paymentMethod || 'cash';
+        }
+        function saveEditTx() {
+            const id = document.getElementById('editId').value;
+            const tx = transactions.find(t => t.id === id);
+
+            if(tx) {
+                tx.amount = parseFloat(document.getElementById('editAmt').value);
+                tx.merchant = document.getElementById('editMer').value;
+                tx.category = document.getElementById('editCat').value;
+                tx.paymentMethod = document.getElementById('editPay').value;
+
+                const dateInput = document.getElementById('editDate').value;
+                if (dateInput) tx.date = new Date(dateInput).getTime();
+
+                save();
+                closeModal('editModal');
+                showToast('Updated');
+                render(currentTab);
+            }
+        }
+        
+        function quickAddTx() { 
+            const txt = document.getElementById('quickInput').value; 
+            const amtMatch = txt.match(/(\d+(\.\d{1,2})?)/); 
+            if(!amtMatch) return showToast('No amount found'); 
+            const amt = parseFloat(amtMatch[0]); 
+            // Simple heuristic mapping
+            let cat = 'other';
+            const lowerTxt = txt.toLowerCase();
+            for (const [k, v] of Object.entries(categories)) {
+                if (lowerTxt.includes(v.name.toLowerCase())) { cat = k; break; }
+            }
+            if (cat === 'other') { // Fallbacks
+                 if(/uber|ola|cab|fuel/.test(lowerTxt)) cat = 'transport';
+                 else if(/swiggy|zomato|lunch/.test(lowerTxt)) cat = 'food';
+            }
+
+            transactions.unshift({ id: Date.now() + '', amount: amt, merchant: 'Quick Expense', category: cat, paymentMethod: 'cash', date: Date.now(), source: 'quick', notes: txt }); 
+            save(); closeModal('quickAddModal'); document.getElementById('quickInput').value = ''; showToast('Added!'); 
+/* ===== Calendar Expense View ===== */
+let calDate = new Date();
+
+function openCalendarView() {
+    calDate = new Date();
+    renderCalendar();
+    openModal('calendarModal');
+}
+
+function changeCalMonth(delta) {
+    calDate.setMonth(calDate.getMonth() + delta);
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const year = calDate.getFullYear();
+    const month = calDate.getMonth();
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    document.getElementById('calTitle').textContent =
+        calDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+    const dailyTotals = {};
+    transactions.forEach(t => {
+        const d = new Date(t.date);
+        if (d.getMonth() === month && d.getFullYear() === year) {
+            dailyTotals[d.getDate()] = (dailyTotals[d.getDate()] || 0) + t.amount;
+        }
+    });
+
+    let grid = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">';
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d =>
+        grid += `<div style="font-size:12px;text-align:center;color:var(--text-muted)">${d}</div>`
+    );
+
+    for (let i = 0; i < firstDay; i++) grid += '<div></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const total = dailyTotals[d] || 0;
+        grid += `
+        <div style="padding:8px;border-radius:8px;background:var(--bg-input);text-align:center;">
+            <div style="font-weight:600">${d}</div>
+            <div style="font-size:11px;color:var(--accent)">₹${total || ''}</div>
+        </div>`;
+    }
+
+    grid += '</div>';
+    document.getElementById('calendarGrid').innerHTML = grid;
+}
+
+/* ===== Swipe to delete/edit ===== */
+function attachSwipeHandlers() {
+    document.querySelectorAll('.tx-item').forEach(item => {
+        let startX = 0;
+        item.addEventListener('touchstart', e => {
+            startX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        item.addEventListener('touchend', e => {
+            const diff = e.changedTouches[0].screenX - startX;
+            const editBtn = item.querySelector('button.icon-btn');
+            const deleteBtn = item.querySelectorAll('button.icon-btn')[1];
+
+            if (diff < -60 && deleteBtn) deleteBtn.click(); // swipe left delete
+            if (diff > 60 && editBtn) editBtn.click();       // swipe right edit
+        }, { passive: true });
+    });
+}
+
+/* ===== Faster loading for large histories ===== */
+let txRenderLimit = 100;
+
+function renderTxList(containerId, list, limit) {
+    const el = document.getElementById(containerId);
+    const effectiveLimit = limit || txRenderLimit;
+    const data = list.slice(0, effectiveLimit);
+
+    el.innerHTML = data.length ? data.map(t => {
+        const cat = categories[t.category] || { name: 'Unknown', emoji: '❓' };
+        return `
+        <div class="tx-item">
+            <div class="tx-emoji">${cat.emoji}</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${t.merchant}</div>
+                <div class="tx-meta">${new Date(t.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})} • ${t.paymentMethod.toUpperCase()}</div>
+            </div>
+            <div class="tx-amount">₹${t.amount.toLocaleString('en-IN')}</div>
+            ${!limit ? `<div class="tx-actions"><button class="icon-btn" onclick="openEditTx('${t.id}')">✎</button><button class="icon-btn" onclick="deleteTx('${t.id}')" style="color:#ef4444">🗑</button></div>` : ''}
+        </div>`;
+    }).join('') : '<div style="text-align:center;padding:20px;color:var(--text-muted)">No transactions found</div>';
+
+    if (list.length > effectiveLimit) {
+        el.innerHTML += `<button class="btn btn-s" onclick="loadMoreTx()">Load more</button>`;
+    }
+
+    attachSwipeHandlers();
+}
+
+function loadMoreTx() {
+    txRenderLimit += 100;
+    render(1);
+}
+
+
+/* ===== Income & Savings Tracking ===== */
+let incomes = JSON.parse(localStorage.getItem('expenseIncome')) || [];
+
+function saveIncome() {
+    localStorage.setItem('expenseIncome', JSON.stringify(incomes));
+}
+
+function addIncome() {
+    const amt = parseFloat(document.getElementById('incomeAmt').value);
+    const src = document.getElementById('incomeSource').value.trim();
+    const dateInput = document.getElementById('incomeDate').value;
+
+    if (!amt || !src) return showToast('Enter amount & source');
+
+    const date = dateInput ? new Date(dateInput).getTime() : Date.now();
+
+    incomes.unshift({
+        id: Date.now() + '',
+        amount: amt,
+        source: src,
+        date
+    });
+
+    saveIncome();
+    closeModal('incomeModal');
+
+    document.getElementById('incomeAmt').value = '';
+    document.getElementById('incomeSource').value = '';
+    document.getElementById('incomeDate').value = '';
+
+    showToast('Income Added');
+    
+/* FAB menu toggle */
+let fabOpen = false;
+
+function toggleFabMenu() {
+    fabOpen = !fabOpen;
+    const group = document.getElementById('fabSecondaryGroup');
+    group.classList.toggle('hidden', !fabOpen);
+}
+
+
+/* ===== FAB Auto-hide on scroll ===== */
+let lastScrollY = window.scrollY;
+
+window.addEventListener('scroll', () => {
+    const fab = document.querySelector('.fab-container');
+    const currentY = window.scrollY;
+
+    if (!fab) return;
+
+    if (currentY > lastScrollY + 10) {
+        // scrolling down → hide
+        fab.classList.add('auto-hidden');
+    } else if (currentY < lastScrollY - 10) {
+        // scrolling up → show
+        fab.classList.remove('auto-hidden');
+    }
+
+    lastScrollY = currentY;
+});
+
+
+/* ===== Monthly Summary Cards ===== */
+function renderMonthlySummary() {
+    const now = new Date();
+    const container = document.getElementById('monthlySummary');
+    if (!container) return;
+
+    let cards = '';
+    for (let i = 2; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const total = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const labelDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = labelDate.toLocaleDateString('en-IN', { month: 'short' });
+
+        cards += `
+            <div style="background:var(--bg-input);padding:12px;border-radius:12px;text-align:center;">
+                <div style="font-size:12px;color:var(--text-muted)">${label}</div>
+                <div style="font-weight:700;">₹${total.toLocaleString('en-IN')}</div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = cards;
+}
+
+renderMonthlySummary();
+renderIncomeExpenseChart();
+
+/* ===== Income vs Expense Chart ===== */
+function renderIncomeExpenseChart() {
+    const ctx = document.getElementById('chartIncomeExpense');
+    if (!ctx) return;
+
+    const now = new Date();
+    const labels = [];
+    const expenseData = [];
+    const incomeData = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const expenseTotal = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const incomeTotal = incomes
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        labels.push(new Date(now.getFullYear(), now.getMonth() - i, 1)
+            .toLocaleDateString('en-IN', { month: 'short' }));
+
+        expenseData.push(expenseTotal);
+        incomeData.push(incomeTotal);
+    }
+
+    if (window.chartIncomeExpenseObj) {
+        window.chartIncomeExpenseObj.destroy();
+    }
+
+    window.chartIncomeExpenseObj = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Expense',
+                    data: expenseData,
+                    borderColor: '#f43f5e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            
+scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { display: false }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+
+        }
+    });
+}
+
+
+/* ===== Income List in History ===== */
+function renderIncomeList() {
+    const el = document.getElementById('incomeList');
+    if (!el || !incomes) return;
+
+    el.innerHTML = incomes.length ? incomes.map(i => `
+        <div class="tx-item">
+            <div class="tx-emoji">💰</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${i.source}</div>
+                <div class="tx-meta">${new Date(i.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})}</div>
+            </div>
+            <div class="tx-amount">₹${i.amount.toLocaleString('en-IN')}</div>
+            <div class="tx-actions">
+                <button class="icon-btn" onclick="openEditIncome('${i.id}')">✎</button>
+                <button class="icon-btn" onclick="deleteIncome('${i.id}')" style="color:#ef4444">🗑</button>
+            </div>
+        </div>
+    `).join('') : '<div style="padding:10px;color:var(--text-muted)">No income records</div>';
+}
+
+function deleteIncome(id) {
+    if (!confirm('Delete income?')) return;
+    incomes = incomes.filter(i => i.id !== id);
+    saveIncome();
+    render(1);
+}
+
+function openEditIncome(id) {
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    document.getElementById('editIncomeId').value = inc.id;
+    document.getElementById('editIncomeAmt').value = inc.amount;
+    document.getElementById('editIncomeSource').value = inc.source;
+
+    const d = new Date(inc.date);
+    document.getElementById('editIncomeDate').value = d.toISOString().slice(0,10);
+
+    openModal('editIncomeModal');
+}
+
+function saveIncomeEdit() {
+    const id = document.getElementById('editIncomeId').value;
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    inc.amount = parseFloat(document.getElementById('editIncomeAmt').value);
+    inc.source = document.getElementById('editIncomeSource').value;
+
+    const dateInput = document.getElementById('editIncomeDate').value;
+    if (dateInput) inc.date = new Date(dateInput).getTime();
+
+    saveIncome();
+    closeModal('editIncomeModal');
+    showToast('Income updated');
+    render(1);
+}
+
+render(0);
+}
+
+function getMonthlyIncome() {
+    const now = new Date();
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    return incomes
+        .filter(i => i.date >= startMonth)
+        .reduce((s, i) => s + i.amount, 0);
+}
+
+
+/* FAB menu toggle */
+let fabOpen = false;
+
+function toggleFabMenu() {
+    fabOpen = !fabOpen;
+    const group = document.getElementById('fabSecondaryGroup');
+    group.classList.toggle('hidden', !fabOpen);
+}
+
+
+/* ===== FAB Auto-hide on scroll ===== */
+let lastScrollY = window.scrollY;
+
+window.addEventListener('scroll', () => {
+    const fab = document.querySelector('.fab-container');
+    const currentY = window.scrollY;
+
+    if (!fab) return;
+
+    if (currentY > lastScrollY + 10) {
+        // scrolling down → hide
+        fab.classList.add('auto-hidden');
+    } else if (currentY < lastScrollY - 10) {
+        // scrolling up → show
+        fab.classList.remove('auto-hidden');
+    }
+
+    lastScrollY = currentY;
+});
+
+
+/* ===== Monthly Summary Cards ===== */
+function renderMonthlySummary() {
+    const now = new Date();
+    const container = document.getElementById('monthlySummary');
+    if (!container) return;
+
+    let cards = '';
+    for (let i = 2; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const total = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const labelDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = labelDate.toLocaleDateString('en-IN', { month: 'short' });
+
+        cards += `
+            <div style="background:var(--bg-input);padding:12px;border-radius:12px;text-align:center;">
+                <div style="font-size:12px;color:var(--text-muted)">${label}</div>
+                <div style="font-weight:700;">₹${total.toLocaleString('en-IN')}</div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = cards;
+}
+
+renderMonthlySummary();
+renderIncomeExpenseChart();
+
+/* ===== Income vs Expense Chart ===== */
+function renderIncomeExpenseChart() {
+    const ctx = document.getElementById('chartIncomeExpense');
+    if (!ctx) return;
+
+    const now = new Date();
+    const labels = [];
+    const expenseData = [];
+    const incomeData = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const expenseTotal = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const incomeTotal = incomes
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        labels.push(new Date(now.getFullYear(), now.getMonth() - i, 1)
+            .toLocaleDateString('en-IN', { month: 'short' }));
+
+        expenseData.push(expenseTotal);
+        incomeData.push(incomeTotal);
+    }
+
+    if (window.chartIncomeExpenseObj) {
+        window.chartIncomeExpenseObj.destroy();
+    }
+
+    window.chartIncomeExpenseObj = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Expense',
+                    data: expenseData,
+                    borderColor: '#f43f5e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            
+scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { display: false }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+
+        }
+    });
+}
+
+
+/* ===== Income List in History ===== */
+function renderIncomeList() {
+    const el = document.getElementById('incomeList');
+    if (!el || !incomes) return;
+
+    el.innerHTML = incomes.length ? incomes.map(i => `
+        <div class="tx-item">
+            <div class="tx-emoji">💰</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${i.source}</div>
+                <div class="tx-meta">${new Date(i.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})}</div>
+            </div>
+            <div class="tx-amount">₹${i.amount.toLocaleString('en-IN')}</div>
+            <div class="tx-actions">
+                <button class="icon-btn" onclick="openEditIncome('${i.id}')">✎</button>
+                <button class="icon-btn" onclick="deleteIncome('${i.id}')" style="color:#ef4444">🗑</button>
+            </div>
+        </div>
+    `).join('') : '<div style="padding:10px;color:var(--text-muted)">No income records</div>';
+}
+
+function deleteIncome(id) {
+    if (!confirm('Delete income?')) return;
+    incomes = incomes.filter(i => i.id !== id);
+    saveIncome();
+    render(1);
+}
+
+function openEditIncome(id) {
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    document.getElementById('editIncomeId').value = inc.id;
+    document.getElementById('editIncomeAmt').value = inc.amount;
+    document.getElementById('editIncomeSource').value = inc.source;
+
+    const d = new Date(inc.date);
+    document.getElementById('editIncomeDate').value = d.toISOString().slice(0,10);
+
+    openModal('editIncomeModal');
+}
+
+function saveIncomeEdit() {
+    const id = document.getElementById('editIncomeId').value;
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    inc.amount = parseFloat(document.getElementById('editIncomeAmt').value);
+    inc.source = document.getElementById('editIncomeSource').value;
+
+    const dateInput = document.getElementById('editIncomeDate').value;
+    if (dateInput) inc.date = new Date(dateInput).getTime();
+
+    saveIncome();
+    closeModal('editIncomeModal');
+    showToast('Income updated');
+    render(1);
+}
+
+render(0); 
+        }
+
+        function parseTx() { const txt = document.getElementById('inParse').value; const amtMatch = txt.match(/(?:Rs\.?|INR|₹)\s*([\d,]+(\.\d{2})?)/i); if(amtMatch) { const amt = parseFloat(amtMatch[1].replace(/,/g, '')); transactions.unshift({ id: Date.now() + '', amount: amt, merchant: 'Parsed SMS', category: 'other', paymentMethod: 'upi', date: Date.now(), source: 'sms', notes: txt }); save(); closeModal('parseModal'); document.getElementById('inParse').value = ''; showToast('Parsed & Added!'); 
+/* ===== Calendar Expense View ===== */
+let calDate = new Date();
+
+function openCalendarView() {
+    calDate = new Date();
+    renderCalendar();
+    openModal('calendarModal');
+}
+
+function changeCalMonth(delta) {
+    calDate.setMonth(calDate.getMonth() + delta);
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const year = calDate.getFullYear();
+    const month = calDate.getMonth();
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    document.getElementById('calTitle').textContent =
+        calDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+    const dailyTotals = {};
+    transactions.forEach(t => {
+        const d = new Date(t.date);
+        if (d.getMonth() === month && d.getFullYear() === year) {
+            dailyTotals[d.getDate()] = (dailyTotals[d.getDate()] || 0) + t.amount;
+        }
+    });
+
+    let grid = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">';
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d =>
+        grid += `<div style="font-size:12px;text-align:center;color:var(--text-muted)">${d}</div>`
+    );
+
+    for (let i = 0; i < firstDay; i++) grid += '<div></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const total = dailyTotals[d] || 0;
+        grid += `
+        <div style="padding:8px;border-radius:8px;background:var(--bg-input);text-align:center;">
+            <div style="font-weight:600">${d}</div>
+            <div style="font-size:11px;color:var(--accent)">₹${total || ''}</div>
+        </div>`;
+    }
+
+    grid += '</div>';
+    document.getElementById('calendarGrid').innerHTML = grid;
+}
+
+/* ===== Swipe to delete/edit ===== */
+function attachSwipeHandlers() {
+    document.querySelectorAll('.tx-item').forEach(item => {
+        let startX = 0;
+        item.addEventListener('touchstart', e => {
+            startX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        item.addEventListener('touchend', e => {
+            const diff = e.changedTouches[0].screenX - startX;
+            const editBtn = item.querySelector('button.icon-btn');
+            const deleteBtn = item.querySelectorAll('button.icon-btn')[1];
+
+            if (diff < -60 && deleteBtn) deleteBtn.click(); // swipe left delete
+            if (diff > 60 && editBtn) editBtn.click();       // swipe right edit
+        }, { passive: true });
+    });
+}
+
+/* ===== Faster loading for large histories ===== */
+let txRenderLimit = 100;
+
+function renderTxList(containerId, list, limit) {
+    const el = document.getElementById(containerId);
+    const effectiveLimit = limit || txRenderLimit;
+    const data = list.slice(0, effectiveLimit);
+
+    el.innerHTML = data.length ? data.map(t => {
+        const cat = categories[t.category] || { name: 'Unknown', emoji: '❓' };
+        return `
+        <div class="tx-item">
+            <div class="tx-emoji">${cat.emoji}</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${t.merchant}</div>
+                <div class="tx-meta">${new Date(t.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})} • ${t.paymentMethod.toUpperCase()}</div>
+            </div>
+            <div class="tx-amount">₹${t.amount.toLocaleString('en-IN')}</div>
+            ${!limit ? `<div class="tx-actions"><button class="icon-btn" onclick="openEditTx('${t.id}')">✎</button><button class="icon-btn" onclick="deleteTx('${t.id}')" style="color:#ef4444">🗑</button></div>` : ''}
+        </div>`;
+    }).join('') : '<div style="text-align:center;padding:20px;color:var(--text-muted)">No transactions found</div>';
+
+    if (list.length > effectiveLimit) {
+        el.innerHTML += `<button class="btn btn-s" onclick="loadMoreTx()">Load more</button>`;
+    }
+
+    attachSwipeHandlers();
+}
+
+function loadMoreTx() {
+    txRenderLimit += 100;
+    render(1);
+}
+
+
+/* ===== Income & Savings Tracking ===== */
+let incomes = JSON.parse(localStorage.getItem('expenseIncome')) || [];
+
+function saveIncome() {
+    localStorage.setItem('expenseIncome', JSON.stringify(incomes));
+}
+
+function addIncome() {
+    const amt = parseFloat(document.getElementById('incomeAmt').value);
+    const src = document.getElementById('incomeSource').value.trim();
+    const dateInput = document.getElementById('incomeDate').value;
+
+    if (!amt || !src) return showToast('Enter amount & source');
+
+    const date = dateInput ? new Date(dateInput).getTime() : Date.now();
+
+    incomes.unshift({
+        id: Date.now() + '',
+        amount: amt,
+        source: src,
+        date
+    });
+
+    saveIncome();
+    closeModal('incomeModal');
+
+    document.getElementById('incomeAmt').value = '';
+    document.getElementById('incomeSource').value = '';
+    document.getElementById('incomeDate').value = '';
+
+    showToast('Income Added');
+    
+/* FAB menu toggle */
+let fabOpen = false;
+
+function toggleFabMenu() {
+    fabOpen = !fabOpen;
+    const group = document.getElementById('fabSecondaryGroup');
+    group.classList.toggle('hidden', !fabOpen);
+}
+
+
+/* ===== FAB Auto-hide on scroll ===== */
+let lastScrollY = window.scrollY;
+
+window.addEventListener('scroll', () => {
+    const fab = document.querySelector('.fab-container');
+    const currentY = window.scrollY;
+
+    if (!fab) return;
+
+    if (currentY > lastScrollY + 10) {
+        // scrolling down → hide
+        fab.classList.add('auto-hidden');
+    } else if (currentY < lastScrollY - 10) {
+        // scrolling up → show
+        fab.classList.remove('auto-hidden');
+    }
+
+    lastScrollY = currentY;
+});
+
+
+/* ===== Monthly Summary Cards ===== */
+function renderMonthlySummary() {
+    const now = new Date();
+    const container = document.getElementById('monthlySummary');
+    if (!container) return;
+
+    let cards = '';
+    for (let i = 2; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const total = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const labelDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = labelDate.toLocaleDateString('en-IN', { month: 'short' });
+
+        cards += `
+            <div style="background:var(--bg-input);padding:12px;border-radius:12px;text-align:center;">
+                <div style="font-size:12px;color:var(--text-muted)">${label}</div>
+                <div style="font-weight:700;">₹${total.toLocaleString('en-IN')}</div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = cards;
+}
+
+renderMonthlySummary();
+renderIncomeExpenseChart();
+
+/* ===== Income vs Expense Chart ===== */
+function renderIncomeExpenseChart() {
+    const ctx = document.getElementById('chartIncomeExpense');
+    if (!ctx) return;
+
+    const now = new Date();
+    const labels = [];
+    const expenseData = [];
+    const incomeData = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const expenseTotal = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const incomeTotal = incomes
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        labels.push(new Date(now.getFullYear(), now.getMonth() - i, 1)
+            .toLocaleDateString('en-IN', { month: 'short' }));
+
+        expenseData.push(expenseTotal);
+        incomeData.push(incomeTotal);
+    }
+
+    if (window.chartIncomeExpenseObj) {
+        window.chartIncomeExpenseObj.destroy();
+    }
+
+    window.chartIncomeExpenseObj = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Expense',
+                    data: expenseData,
+                    borderColor: '#f43f5e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            
+scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { display: false }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+
+        }
+    });
+}
+
+
+/* ===== Income List in History ===== */
+function renderIncomeList() {
+    const el = document.getElementById('incomeList');
+    if (!el || !incomes) return;
+
+    el.innerHTML = incomes.length ? incomes.map(i => `
+        <div class="tx-item">
+            <div class="tx-emoji">💰</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${i.source}</div>
+                <div class="tx-meta">${new Date(i.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})}</div>
+            </div>
+            <div class="tx-amount">₹${i.amount.toLocaleString('en-IN')}</div>
+            <div class="tx-actions">
+                <button class="icon-btn" onclick="openEditIncome('${i.id}')">✎</button>
+                <button class="icon-btn" onclick="deleteIncome('${i.id}')" style="color:#ef4444">🗑</button>
+            </div>
+        </div>
+    `).join('') : '<div style="padding:10px;color:var(--text-muted)">No income records</div>';
+}
+
+function deleteIncome(id) {
+    if (!confirm('Delete income?')) return;
+    incomes = incomes.filter(i => i.id !== id);
+    saveIncome();
+    render(1);
+}
+
+function openEditIncome(id) {
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    document.getElementById('editIncomeId').value = inc.id;
+    document.getElementById('editIncomeAmt').value = inc.amount;
+    document.getElementById('editIncomeSource').value = inc.source;
+
+    const d = new Date(inc.date);
+    document.getElementById('editIncomeDate').value = d.toISOString().slice(0,10);
+
+    openModal('editIncomeModal');
+}
+
+function saveIncomeEdit() {
+    const id = document.getElementById('editIncomeId').value;
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    inc.amount = parseFloat(document.getElementById('editIncomeAmt').value);
+    inc.source = document.getElementById('editIncomeSource').value;
+
+    const dateInput = document.getElementById('editIncomeDate').value;
+    if (dateInput) inc.date = new Date(dateInput).getTime();
+
+    saveIncome();
+    closeModal('editIncomeModal');
+    showToast('Income updated');
+    render(1);
+}
+
+render(0);
+}
+
+function getMonthlyIncome() {
+    const now = new Date();
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    return incomes
+        .filter(i => i.date >= startMonth)
+        .reduce((s, i) => s + i.amount, 0);
+}
+
+
+/* FAB menu toggle */
+let fabOpen = false;
+
+function toggleFabMenu() {
+    fabOpen = !fabOpen;
+    const group = document.getElementById('fabSecondaryGroup');
+    group.classList.toggle('hidden', !fabOpen);
+}
+
+
+/* ===== FAB Auto-hide on scroll ===== */
+let lastScrollY = window.scrollY;
+
+window.addEventListener('scroll', () => {
+    const fab = document.querySelector('.fab-container');
+    const currentY = window.scrollY;
+
+    if (!fab) return;
+
+    if (currentY > lastScrollY + 10) {
+        // scrolling down → hide
+        fab.classList.add('auto-hidden');
+    } else if (currentY < lastScrollY - 10) {
+        // scrolling up → show
+        fab.classList.remove('auto-hidden');
+    }
+
+    lastScrollY = currentY;
+});
+
+
+/* ===== Monthly Summary Cards ===== */
+function renderMonthlySummary() {
+    const now = new Date();
+    const container = document.getElementById('monthlySummary');
+    if (!container) return;
+
+    let cards = '';
+    for (let i = 2; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const total = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const labelDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = labelDate.toLocaleDateString('en-IN', { month: 'short' });
+
+        cards += `
+            <div style="background:var(--bg-input);padding:12px;border-radius:12px;text-align:center;">
+                <div style="font-size:12px;color:var(--text-muted)">${label}</div>
+                <div style="font-weight:700;">₹${total.toLocaleString('en-IN')}</div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = cards;
+}
+
+renderMonthlySummary();
+renderIncomeExpenseChart();
+
+/* ===== Income vs Expense Chart ===== */
+function renderIncomeExpenseChart() {
+    const ctx = document.getElementById('chartIncomeExpense');
+    if (!ctx) return;
+
+    const now = new Date();
+    const labels = [];
+    const expenseData = [];
+    const incomeData = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const expenseTotal = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const incomeTotal = incomes
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        labels.push(new Date(now.getFullYear(), now.getMonth() - i, 1)
+            .toLocaleDateString('en-IN', { month: 'short' }));
+
+        expenseData.push(expenseTotal);
+        incomeData.push(incomeTotal);
+    }
+
+    if (window.chartIncomeExpenseObj) {
+        window.chartIncomeExpenseObj.destroy();
+    }
+
+    window.chartIncomeExpenseObj = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Expense',
+                    data: expenseData,
+                    borderColor: '#f43f5e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            
+scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { display: false }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+
+        }
+    });
+}
+
+
+/* ===== Income List in History ===== */
+function renderIncomeList() {
+    const el = document.getElementById('incomeList');
+    if (!el || !incomes) return;
+
+    el.innerHTML = incomes.length ? incomes.map(i => `
+        <div class="tx-item">
+            <div class="tx-emoji">💰</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${i.source}</div>
+                <div class="tx-meta">${new Date(i.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})}</div>
+            </div>
+            <div class="tx-amount">₹${i.amount.toLocaleString('en-IN')}</div>
+            <div class="tx-actions">
+                <button class="icon-btn" onclick="openEditIncome('${i.id}')">✎</button>
+                <button class="icon-btn" onclick="deleteIncome('${i.id}')" style="color:#ef4444">🗑</button>
+            </div>
+        </div>
+    `).join('') : '<div style="padding:10px;color:var(--text-muted)">No income records</div>';
+}
+
+function deleteIncome(id) {
+    if (!confirm('Delete income?')) return;
+    incomes = incomes.filter(i => i.id !== id);
+    saveIncome();
+    render(1);
+}
+
+function openEditIncome(id) {
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    document.getElementById('editIncomeId').value = inc.id;
+    document.getElementById('editIncomeAmt').value = inc.amount;
+    document.getElementById('editIncomeSource').value = inc.source;
+
+    const d = new Date(inc.date);
+    document.getElementById('editIncomeDate').value = d.toISOString().slice(0,10);
+
+    openModal('editIncomeModal');
+}
+
+function saveIncomeEdit() {
+    const id = document.getElementById('editIncomeId').value;
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    inc.amount = parseFloat(document.getElementById('editIncomeAmt').value);
+    inc.source = document.getElementById('editIncomeSource').value;
+
+    const dateInput = document.getElementById('editIncomeDate').value;
+    if (dateInput) inc.date = new Date(dateInput).getTime();
+
+    saveIncome();
+    closeModal('editIncomeModal');
+    showToast('Income updated');
+    render(1);
+}
+
+render(0); } else { showToast('Could not find amount'); } }
+        function saveBudgets() { Object.keys(categories).forEach(k => { budgets[k] = parseFloat(document.getElementById('bud_'+k).value) || 0; }); save(); closeModal('budgetModal'); render(3); }
+        function addRec() { recurring.push({ id: Date.now()+'', amount: parseFloat(document.getElementById('inRecAmt').value), description: document.getElementById('inRecDesc').value, category: document.getElementById('inRecCat').value, frequency: document.getElementById('inRecFreq').value, nextDue: new Date(document.getElementById('inRecDate').value).getTime() }); save(); closeModal('recModal'); render(3); }
+        function deleteRec(id) { recurring = recurring.filter(r => r.id !== id); save(); render(3); }
+
+        function getStats() {
+            const now = new Date();
+            const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+            const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const monthTotal = transactions.filter(t => t.date >= startMonth).reduce((s,t) => s+t.amount, 0);
+            const dayTotal = transactions.filter(t => t.date >= startDay).reduce((s,t) => s+t.amount, 0);
+            return { monthTotal, dayTotal };
+        }
+
+        function renderTxList(containerId, list, limit) {
+            const el = document.getElementById(containerId);
+            const data = limit ? list.slice(0, limit) : list;
+            el.innerHTML = data.length ? data.map(t => {
+                const cat = categories[t.category] || { name: 'Unknown', emoji: '❓' };
+                return `
+                <div class="tx-item">
+                    <div class="tx-emoji">${cat.emoji}</div>
+                    <div class="tx-info">
+                        <div class="tx-merchant">${t.merchant}</div>
+                        <div class="tx-meta">${new Date(t.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})} • ${t.paymentMethod.toUpperCase()}</div>
+                    </div>
+                    <div class="tx-amount">₹${t.amount.toLocaleString('en-IN')}</div>
+                    ${!limit ? `<div class="tx-actions"><button class="icon-btn" onclick="openEditTx('${t.id}')">✎</button><button class="icon-btn" onclick="deleteTx('${t.id}')" style="color:#ef4444">🗑</button></div>` : ''}
+                </div>
+            `}).join('') : '<div style="text-align:center;padding:20px;color:var(--text-muted)">No transactions found</div>';
+        }
+
+        function filterTx() { filters.search = document.getElementById('searchBox').value.toLowerCase(); render(1); }
+
+        function render(tabIndex = 0) {
+            const isDark = document.body.classList.contains('dark');
+            
+            if (tabIndex === 0) { // HOME
+                const stats = getStats();
+                
+document.getElementById('statMonth').textContent = '₹' + stats.monthTotal.toLocaleString('en-IN');
+const monthlyIncome = getMonthlyIncome();
+const savings = monthlyIncome - stats.monthTotal;
+document.getElementById('statToday').textContent = '₹' + stats.dayTotal.toLocaleString('en-IN');
+
+                document.getElementById('statToday').textContent = '₹' + stats.dayTotal.toLocaleString('en-IN');
+                const totalBudget = Object.values(budgets).reduce((a,b)=>a+b,0);
+                const pct = totalBudget ? Math.min((stats.monthTotal / totalBudget) * 100, 100) : 0;
+                document.getElementById('budgetOverview').innerHTML = `
+                    <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
+                        <span>Spent: ₹${stats.monthTotal.toLocaleString('en-IN')}</span>
+                        <span>Limit: ₹${totalBudget.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div style="height:10px;background:var(--bg-input);border-radius:5px;overflow:hidden">
+                        <div style="height:100%;background:${pct > 90 ? '#ef4444' : 'var(--accent)'};width:${pct}%"></div>
+                    </div>
+                `;
+                renderTxList('recentList', transactions, 5);
+                renderMonthlySummary();
+renderIncomeExpenseChart();
+            } 
+            else if (tabIndex === 1) { // HISTORY
+                const now = new Date();
+                let filtered = transactions;
+                if (filters.period === 'today') { const t = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(); filtered = filtered.filter(x => x.date >= t); }
+                else if (filters.period === 'month') { const t = new Date(now.getFullYear(), now.getMonth(), 1).getTime(); filtered = filtered.filter(x => x.date >= t); }
+                if (filters.search) filtered = filtered.filter(x => x.merchant.toLowerCase().includes(filters.search));
+                document.getElementById('periodChips').innerHTML = ['All', 'Month', 'Today'].map(p => `<div class="chip ${filters.period === p.toLowerCase() ? 'active' : ''}" onclick="filters.period='${p.toLowerCase()}';render(1)">${p}</div>`).join('');
+                renderTxList('txList', filtered, 0);
+                renderIncomeList();
+            }
+            else if (tabIndex === 2) { // ANALYSIS
+                const now = new Date();
+                const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+                const txMonth = transactions.filter(t => t.date >= thisMonthStart);
+                Chart.defaults.color = isDark ? '#a1a1aa' : '#6b7280';
+                Chart.defaults.borderColor = isDark ? '#3f3f46' : '#e5e7eb';
+
+                const catTotals = {};
+                txMonth.forEach(t => catTotals[t.category] = (catTotals[t.category]||0) + t.amount);
+                
+                const ctxC = document.getElementById('chartCat').getContext('2d');
+                if(charts.cat) charts.cat.destroy();
+                charts.cat = new Chart(ctxC, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(catTotals).map(k => categories[k]?.name || k),
+                        datasets: [{ 
+                            data: Object.values(catTotals), 
+                            backgroundColor: ['#10b981','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#6366f1','#94a3b8'],
+                            borderColor: isDark ? '#27272a' : '#ffffff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: { plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 } } } } }
+                });
+
+                const monthLabels = []; const monthData = [];
+                for(let i=5; i>=0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const nextD = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+                    const total = transactions.filter(t => t.date >= d.getTime() && t.date < nextD.getTime()).reduce((a,b)=>a+b.amount,0);
+                    monthLabels.push(d.toLocaleDateString('en-IN', {month:'short'}));
+                    monthData.push(total);
+                }
+
+                const ctxT = document.getElementById('chartTrend').getContext('2d');
+                if(charts.trend) charts.trend.destroy();
+                charts.trend = new Chart(ctxT, {
+                    type: 'bar',
+                    data: { labels: monthLabels, datasets: [{ label: 'Spend', data: monthData, backgroundColor: '#10b981', borderRadius: 4 }] },
+                    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } } }
+                });
+
+                const highest = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
+                document.getElementById('insightsContent').innerHTML = `• Top spend: <b>${highest ? (categories[highest[0]]?.name||highest[0]) : 'None'}</b> (₹${highest ? highest[1] : 0})<br>• Daily avg: <b>₹${(txMonth.reduce((a,b)=>a+b.amount,0) / now.getDate()).toFixed(0)}</b><br>• Count: <b>${txMonth.length}</b>`;
+            }
+            else if (tabIndex === 3) { // PLAN
+                const now = new Date();
+                const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+                const spent = {};
+                transactions.filter(t => t.date >= startMonth).forEach(t => spent[t.category] = (spent[t.category]||0) + t.amount);
+                
+                document.getElementById('budgetList').innerHTML = Object.entries(budgets).map(([k, lim]) => {
+                    if (!categories[k]) return ''; // Skip deleted cats
+                    const val = spent[k] || 0;
+                    const pct = Math.min((val/lim)*100, 100);
+                    const color = pct > 90 ? '#ef4444' : 'var(--accent)';
+                    return lim > 0 ? `<div class="cat-item"><div class="cat-top"><span style="font-size:18px">${categories[k].emoji}</span><span class="cat-name">${categories[k].name}</span><span class="cat-val">₹${val} / ${lim}</span></div><div style="height:6px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color}"></div></div></div>` : '';
+                }).join('');
+                document.getElementById('recList').innerHTML = recurring.map(r => `<div class="tx-item"><div class="tx-info"><div class="tx-merchant">${r.description}</div><div class="tx-meta">${r.frequency} • Next: ${new Date(r.nextDue).toLocaleDateString('en-IN')}</div></div><div class="tx-amount">₹${r.amount}</div><button class="icon-btn" onclick="deleteRec('${r.id}')" style="margin-left:8px">🗑</button></div>`).join('') || '<div style="font-size:13px;color:var(--text-muted);padding:10px">No recurring payments set</div>';
+            }
+        }
+
+        function toggleDark() {
+            document.body.classList.toggle('dark');
+            localStorage.setItem('dark', document.body.classList.contains('dark'));
+            if(currentTab === 2) render(2);
+        }
+        if(localStorage.getItem('dark') === 'true') toggleDark();
+        function exportJSON() { const blob = new Blob([JSON.stringify({transactions,budgets,recurring,categories})], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `expense_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); }
+        function importData() { const input = document.createElement('input'); input.type='file'; input.onchange = e => { const r = new FileReader(); r.onload = ev => { const d = JSON.parse(ev.target.result); if(d.transactions) { transactions=d.transactions; budgets=d.budgets||budgets; recurring=d.recurring||recurring; categories=d.categories||categories; save(); location.reload(); } }; r.readAsText(e.target.files[0]); }; input.click(); }
+        async function syncData() { localStorage.setItem('backendUrl', document.getElementById('inBackend').value); showToast('Syncing...'); setTimeout(() => showToast('Sync Complete (Mock)'), 1000); }
+        let defPrompt; window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); defPrompt = e; document.getElementById('installBtn').style.display='block'; });
+        async function installApp() { if(defPrompt) { defPrompt.prompt(); const {outcome} = await defPrompt.userChoice; if(outcome==='accepted') document.getElementById('installBtn').style.display='none'; } }
+        
+        
+/* ===== Calendar Expense View ===== */
+let calDate = new Date();
+
+function openCalendarView() {
+    calDate = new Date();
+    renderCalendar();
+    openModal('calendarModal');
+}
+
+function changeCalMonth(delta) {
+    calDate.setMonth(calDate.getMonth() + delta);
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const year = calDate.getFullYear();
+    const month = calDate.getMonth();
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    document.getElementById('calTitle').textContent =
+        calDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+    const dailyTotals = {};
+    transactions.forEach(t => {
+        const d = new Date(t.date);
+        if (d.getMonth() === month && d.getFullYear() === year) {
+            dailyTotals[d.getDate()] = (dailyTotals[d.getDate()] || 0) + t.amount;
+        }
+    });
+
+    let grid = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">';
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d =>
+        grid += `<div style="font-size:12px;text-align:center;color:var(--text-muted)">${d}</div>`
+    );
+
+    for (let i = 0; i < firstDay; i++) grid += '<div></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const total = dailyTotals[d] || 0;
+        grid += `
+        <div style="padding:8px;border-radius:8px;background:var(--bg-input);text-align:center;">
+            <div style="font-weight:600">${d}</div>
+            <div style="font-size:11px;color:var(--accent)">₹${total || ''}</div>
+        </div>`;
+    }
+
+    grid += '</div>';
+    document.getElementById('calendarGrid').innerHTML = grid;
+}
+
+/* ===== Swipe to delete/edit ===== */
+function attachSwipeHandlers() {
+    document.querySelectorAll('.tx-item').forEach(item => {
+        let startX = 0;
+        item.addEventListener('touchstart', e => {
+            startX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        item.addEventListener('touchend', e => {
+            const diff = e.changedTouches[0].screenX - startX;
+            const editBtn = item.querySelector('button.icon-btn');
+            const deleteBtn = item.querySelectorAll('button.icon-btn')[1];
+
+            if (diff < -60 && deleteBtn) deleteBtn.click(); // swipe left delete
+            if (diff > 60 && editBtn) editBtn.click();       // swipe right edit
+        }, { passive: true });
+    });
+}
+
+/* ===== Faster loading for large histories ===== */
+let txRenderLimit = 100;
+
+function renderTxList(containerId, list, limit) {
+    const el = document.getElementById(containerId);
+    const effectiveLimit = limit || txRenderLimit;
+    const data = list.slice(0, effectiveLimit);
+
+    el.innerHTML = data.length ? data.map(t => {
+        const cat = categories[t.category] || { name: 'Unknown', emoji: '❓' };
+        return `
+        <div class="tx-item">
+            <div class="tx-emoji">${cat.emoji}</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${t.merchant}</div>
+                <div class="tx-meta">${new Date(t.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})} • ${t.paymentMethod.toUpperCase()}</div>
+            </div>
+            <div class="tx-amount">₹${t.amount.toLocaleString('en-IN')}</div>
+            ${!limit ? `<div class="tx-actions"><button class="icon-btn" onclick="openEditTx('${t.id}')">✎</button><button class="icon-btn" onclick="deleteTx('${t.id}')" style="color:#ef4444">🗑</button></div>` : ''}
+        </div>`;
+    }).join('') : '<div style="text-align:center;padding:20px;color:var(--text-muted)">No transactions found</div>';
+
+    if (list.length > effectiveLimit) {
+        el.innerHTML += `<button class="btn btn-s" onclick="loadMoreTx()">Load more</button>`;
+    }
+
+    attachSwipeHandlers();
+}
+
+function loadMoreTx() {
+    txRenderLimit += 100;
+    render(1);
+}
+
+
+/* ===== Income & Savings Tracking ===== */
+let incomes = JSON.parse(localStorage.getItem('expenseIncome')) || [];
+
+function saveIncome() {
+    localStorage.setItem('expenseIncome', JSON.stringify(incomes));
+}
+
+function addIncome() {
+    const amt = parseFloat(document.getElementById('incomeAmt').value);
+    const src = document.getElementById('incomeSource').value.trim();
+    const dateInput = document.getElementById('incomeDate').value;
+
+    if (!amt || !src) return showToast('Enter amount & source');
+
+    const date = dateInput ? new Date(dateInput).getTime() : Date.now();
+
+    incomes.unshift({
+        id: Date.now() + '',
+        amount: amt,
+        source: src,
+        date
+    });
+
+    saveIncome();
+    closeModal('incomeModal');
+
+    document.getElementById('incomeAmt').value = '';
+    document.getElementById('incomeSource').value = '';
+    document.getElementById('incomeDate').value = '';
+
+    showToast('Income Added');
+    
+/* FAB menu toggle */
+let fabOpen = false;
+
+function toggleFabMenu() {
+    fabOpen = !fabOpen;
+    const group = document.getElementById('fabSecondaryGroup');
+    group.classList.toggle('hidden', !fabOpen);
+}
+
+
+/* ===== FAB Auto-hide on scroll ===== */
+let lastScrollY = window.scrollY;
+
+window.addEventListener('scroll', () => {
+    const fab = document.querySelector('.fab-container');
+    const currentY = window.scrollY;
+
+    if (!fab) return;
+
+    if (currentY > lastScrollY + 10) {
+        // scrolling down → hide
+        fab.classList.add('auto-hidden');
+    } else if (currentY < lastScrollY - 10) {
+        // scrolling up → show
+        fab.classList.remove('auto-hidden');
+    }
+
+    lastScrollY = currentY;
+});
+
+
+/* ===== Monthly Summary Cards ===== */
+function renderMonthlySummary() {
+    const now = new Date();
+    const container = document.getElementById('monthlySummary');
+    if (!container) return;
+
+    let cards = '';
+    for (let i = 2; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const total = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const labelDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = labelDate.toLocaleDateString('en-IN', { month: 'short' });
+
+        cards += `
+            <div style="background:var(--bg-input);padding:12px;border-radius:12px;text-align:center;">
+                <div style="font-size:12px;color:var(--text-muted)">${label}</div>
+                <div style="font-weight:700;">₹${total.toLocaleString('en-IN')}</div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = cards;
+}
+
+renderMonthlySummary();
+renderIncomeExpenseChart();
+
+/* ===== Income vs Expense Chart ===== */
+function renderIncomeExpenseChart() {
+    const ctx = document.getElementById('chartIncomeExpense');
+    if (!ctx) return;
+
+    const now = new Date();
+    const labels = [];
+    const expenseData = [];
+    const incomeData = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const expenseTotal = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const incomeTotal = incomes
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        labels.push(new Date(now.getFullYear(), now.getMonth() - i, 1)
+            .toLocaleDateString('en-IN', { month: 'short' }));
+
+        expenseData.push(expenseTotal);
+        incomeData.push(incomeTotal);
+    }
+
+    if (window.chartIncomeExpenseObj) {
+        window.chartIncomeExpenseObj.destroy();
+    }
+
+    window.chartIncomeExpenseObj = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Expense',
+                    data: expenseData,
+                    borderColor: '#f43f5e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            
+scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { display: false }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+
+        }
+    });
+}
+
+
+/* ===== Income List in History ===== */
+function renderIncomeList() {
+    const el = document.getElementById('incomeList');
+    if (!el || !incomes) return;
+
+    el.innerHTML = incomes.length ? incomes.map(i => `
+        <div class="tx-item">
+            <div class="tx-emoji">💰</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${i.source}</div>
+                <div class="tx-meta">${new Date(i.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})}</div>
+            </div>
+            <div class="tx-amount">₹${i.amount.toLocaleString('en-IN')}</div>
+            <div class="tx-actions">
+                <button class="icon-btn" onclick="openEditIncome('${i.id}')">✎</button>
+                <button class="icon-btn" onclick="deleteIncome('${i.id}')" style="color:#ef4444">🗑</button>
+            </div>
+        </div>
+    `).join('') : '<div style="padding:10px;color:var(--text-muted)">No income records</div>';
+}
+
+function deleteIncome(id) {
+    if (!confirm('Delete income?')) return;
+    incomes = incomes.filter(i => i.id !== id);
+    saveIncome();
+    render(1);
+}
+
+function openEditIncome(id) {
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    document.getElementById('editIncomeId').value = inc.id;
+    document.getElementById('editIncomeAmt').value = inc.amount;
+    document.getElementById('editIncomeSource').value = inc.source;
+
+    const d = new Date(inc.date);
+    document.getElementById('editIncomeDate').value = d.toISOString().slice(0,10);
+
+    openModal('editIncomeModal');
+}
+
+function saveIncomeEdit() {
+    const id = document.getElementById('editIncomeId').value;
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    inc.amount = parseFloat(document.getElementById('editIncomeAmt').value);
+    inc.source = document.getElementById('editIncomeSource').value;
+
+    const dateInput = document.getElementById('editIncomeDate').value;
+    if (dateInput) inc.date = new Date(dateInput).getTime();
+
+    saveIncome();
+    closeModal('editIncomeModal');
+    showToast('Income updated');
+    render(1);
+}
+
+render(0);
+}
+
+function getMonthlyIncome() {
+    const now = new Date();
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    return incomes
+        .filter(i => i.date >= startMonth)
+        .reduce((s, i) => s + i.amount, 0);
+}
+
+
+/* FAB menu toggle */
+let fabOpen = false;
+
+function toggleFabMenu() {
+    fabOpen = !fabOpen;
+    const group = document.getElementById('fabSecondaryGroup');
+    group.classList.toggle('hidden', !fabOpen);
+}
+
+
+/* ===== FAB Auto-hide on scroll ===== */
+let lastScrollY = window.scrollY;
+
+window.addEventListener('scroll', () => {
+    const fab = document.querySelector('.fab-container');
+    const currentY = window.scrollY;
+
+    if (!fab) return;
+
+    if (currentY > lastScrollY + 10) {
+        // scrolling down → hide
+        fab.classList.add('auto-hidden');
+    } else if (currentY < lastScrollY - 10) {
+        // scrolling up → show
+        fab.classList.remove('auto-hidden');
+    }
+
+    lastScrollY = currentY;
+});
+
+
+/* ===== Monthly Summary Cards ===== */
+function renderMonthlySummary() {
+    const now = new Date();
+    const container = document.getElementById('monthlySummary');
+    if (!container) return;
+
+    let cards = '';
+    for (let i = 2; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const total = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const labelDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = labelDate.toLocaleDateString('en-IN', { month: 'short' });
+
+        cards += `
+            <div style="background:var(--bg-input);padding:12px;border-radius:12px;text-align:center;">
+                <div style="font-size:12px;color:var(--text-muted)">${label}</div>
+                <div style="font-weight:700;">₹${total.toLocaleString('en-IN')}</div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = cards;
+}
+
+renderMonthlySummary();
+renderIncomeExpenseChart();
+
+/* ===== Income vs Expense Chart ===== */
+function renderIncomeExpenseChart() {
+    const ctx = document.getElementById('chartIncomeExpense');
+    if (!ctx) return;
+
+    const now = new Date();
+    const labels = [];
+    const expenseData = [];
+    const incomeData = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1).getTime();
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime();
+
+        const expenseTotal = transactions
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        const incomeTotal = incomes
+            .filter(t => t.date >= start && t.date < end)
+            .reduce((a, b) => a + b.amount, 0);
+
+        labels.push(new Date(now.getFullYear(), now.getMonth() - i, 1)
+            .toLocaleDateString('en-IN', { month: 'short' }));
+
+        expenseData.push(expenseTotal);
+        incomeData.push(incomeTotal);
+    }
+
+    if (window.chartIncomeExpenseObj) {
+        window.chartIncomeExpenseObj.destroy();
+    }
+
+    window.chartIncomeExpenseObj = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Expense',
+                    data: expenseData,
+                    borderColor: '#f43f5e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            
+scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { display: false }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+
+        }
+    });
+}
+
+
+/* ===== Income List in History ===== */
+function renderIncomeList() {
+    const el = document.getElementById('incomeList');
+    if (!el || !incomes) return;
+
+    el.innerHTML = incomes.length ? incomes.map(i => `
+        <div class="tx-item">
+            <div class="tx-emoji">💰</div>
+            <div class="tx-info">
+                <div class="tx-merchant">${i.source}</div>
+                <div class="tx-meta">${new Date(i.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'})}</div>
+            </div>
+            <div class="tx-amount">₹${i.amount.toLocaleString('en-IN')}</div>
+            <div class="tx-actions">
+                <button class="icon-btn" onclick="openEditIncome('${i.id}')">✎</button>
+                <button class="icon-btn" onclick="deleteIncome('${i.id}')" style="color:#ef4444">🗑</button>
+            </div>
+        </div>
+    `).join('') : '<div style="padding:10px;color:var(--text-muted)">No income records</div>';
+}
+
+function deleteIncome(id) {
+    if (!confirm('Delete income?')) return;
+    incomes = incomes.filter(i => i.id !== id);
+    saveIncome();
+    render(1);
+}
+
+function openEditIncome(id) {
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    document.getElementById('editIncomeId').value = inc.id;
+    document.getElementById('editIncomeAmt').value = inc.amount;
+    document.getElementById('editIncomeSource').value = inc.source;
+
+    const d = new Date(inc.date);
+    document.getElementById('editIncomeDate').value = d.toISOString().slice(0,10);
+
+    openModal('editIncomeModal');
+}
+
+function saveIncomeEdit() {
+    const id = document.getElementById('editIncomeId').value;
+    const inc = incomes.find(i => i.id === id);
+    if (!inc) return;
+
+    inc.amount = parseFloat(document.getElementById('editIncomeAmt').value);
+    inc.source = document.getElementById('editIncomeSource').value;
+
+    const dateInput = document.getElementById('editIncomeDate').value;
+    if (dateInput) inc.date = new Date(dateInput).getTime();
+
+    saveIncome();
+    closeModal('editIncomeModal');
+    showToast('Income updated');
+    render(1);
+}
+
+render(0);
+        // Recurrent check
+        const today = Date.now();
+        let recUpdated = false;
+        recurring.forEach(r => { if(r.nextDue <= today) { transactions.unshift({ id: Date.now()+Math.random(), amount: r.amount, merchant: r.description, category: r.category, paymentMethod: 'auto', date: today, source: 'recurring' }); const d = new Date(r.nextDue); if(r.frequency === 'monthly') d.setMonth(d.getMonth()+1); else if(r.frequency === 'weekly') d.setDate(d.getDate()+7); else d.setDate(d.getDate()+1); r.nextDue = d.getTime(); recUpdated = true; } });
+        if(recUpdated) { save(); showToast('Recurring processed'); }
+    </script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .catch(err => console.log("SW registration failed:", err));
+}
+</script>
+
+</body>
+</html>
