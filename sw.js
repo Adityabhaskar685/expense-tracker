@@ -1,4 +1,4 @@
-const CACHE = "expense-cache-v2";
+const CACHE = "expense-cache-v3";
 const CDN_CACHE = "expense-cdn-v1";
 
 const coreUrl = path => new URL(path, self.registration.scope).toString();
