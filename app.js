@@ -600,7 +600,7 @@
                 .reduce((sum, tx) => sum + tx.amount, 0);
             const label = new Date(now.getFullYear(), now.getMonth() - i, 1)
                 .toLocaleDateString('en-IN', { month: 'short' });
-            html += `<div class="mini-card"><div class="mini-label">${escapeHtml(label)}</div><div class="mini-value">${formatCurrency(total)}</div></div>`;
+            html += `<div class="mini-card"><div class="mini-label">${escapeHtml(label)}</div><div class="mini-value">${formatCurrency(Math.round(total))}</div></div>`;
         }
         $('monthlySummary').innerHTML = html;
     }
@@ -1315,29 +1315,129 @@
     }
 
     function parseSmsTransaction() {
-        const text = $('inParse').value.trim();
-        const amountMatch = text.match(/(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)/i);
-        if (!amountMatch) {
-            showToast('Could not find amount');
+        // Several SMS can be pasted at once, separated by a blank line.
+        const messages = $('inParse').value.split(/\n\s*\n/).map(text => text.trim()).filter(Boolean);
+        const parsed = messages.map(parseBankSms);
+        const added = parsed.filter(item => item && !item.skip);
+        const skipped = parsed.filter(item => item?.skip).length;
+        if (!added.length) {
+            showToast(skipped ? 'Card bill payment: not an expense or income' : 'Could not find amount');
             return;
         }
-        const amount = Number(amountMatch[1].replace(/,/g, ''));
-        state.transactions.unshift({
-            id: makeId(),
-            amount,
-            merchant: 'Parsed SMS',
-            category: autoCategory('other', text),
-            paymentMethod: 'upi',
-            date: Date.now(),
-            source: 'sms',
-            notes: text
+
+        added.forEach(item => {
+            if (item.type === 'income') {
+                state.incomes.unshift({ id: makeId(), amount: item.amount, source: item.party || 'SMS credit', date: item.date });
+            } else {
+                state.transactions.unshift({
+                    id: makeId(),
+                    amount: item.amount,
+                    merchant: item.party || 'Parsed SMS',
+                    category: autoCategory('other', `${item.party} ${item.text}`),
+                    paymentMethod: item.paymentMethod,
+                    date: item.date,
+                    source: 'sms',
+                    notes: item.text
+                });
+            }
         });
         sortRecords();
         persistCore();
+        persistIncome();
         $('inParse').value = '';
         closeModal('parseModal');
-        showToast('Parsed & added');
+
+        const incomeCount = added.filter(item => item.type === 'income').length;
+        const expenseCount = added.length - incomeCount;
+        if (added.length === 1) {
+            const [item] = added;
+            const label = item.type === 'income' ? 'Income' : 'Expense';
+            showToast(`${label} ${formatCurrency(item.amount)}${item.party ? ` • ${item.party}` : ''}`);
+        } else {
+            const parts = [expenseCount ? `${expenseCount} expense${expenseCount > 1 ? 's' : ''}` : '', incomeCount ? `${incomeCount} income` : ''];
+            showToast(`Added ${parts.filter(Boolean).join(', ')}${skipped ? `, ${skipped} skipped` : ''}`);
+        }
         render(state.currentTab);
+    }
+
+    function parseBankSms(text) {
+        const lower = text.toLowerCase();
+        // A credit-card bill payment is a transfer, not income.
+        if (/card/.test(lower) && /payment.{0,40}received|received.{0,40}payment/.test(lower)) return { skip: true };
+
+        // Whichever keyword comes first decides: "debited ...; RAHUL credited" is a debit.
+        const debitAt = lower.search(/\b(debited|debit|spent|sent|paid|withdrawn|withdrawal|purchased?|deducted)\b/);
+        const creditAt = lower.search(/\b(credited|received|deposited|refund(?:ed)?)\b/);
+        const type = creditAt >= 0 && (debitAt < 0 || creditAt < debitAt) ? 'income' : 'expense';
+
+        // First currency amount that isn't the available balance or a limit.
+        let amount = 0;
+        for (const match of text.matchAll(/(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/gi)) {
+            if (/bal|balance|limit|avl/.test(lower.slice(Math.max(0, match.index - 25), match.index))) continue;
+            amount = Number(match[1].replace(/,/g, ''));
+            break;
+        }
+        if (!amount) {
+            const bare = text.match(/\b(?:debited|credited|sent|received|paid|spent)\s+(?:by|with|for|of)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+            amount = bare ? Number(bare[1].replace(/,/g, '')) : 0;
+        }
+        if (!(amount > 0)) return null;
+
+        let paymentMethod = 'upi';
+        if (/\bcard\b/.test(lower)) paymentMethod = 'card';
+        else if (/\batm\b|withdrawn|withdrawal/.test(lower)) paymentMethod = 'cash';
+
+        let party = findSmsParty(text, type);
+        if (paymentMethod === 'cash' && (!party || /^atm$/i.test(party))) party = 'ATM withdrawal';
+        return { type, amount, party, date: parseSmsDate(text), paymentMethod, text };
+    }
+
+    function findSmsParty(text, type) {
+        const name = "([a-z0-9@._&'\\- ]{2,40}?)";
+        const stop = "(?=\\s+(?:on|ref|refno|upi|via|avl|using|from|for|is|was|has|dated|thru|through|towards|by|in|at|to)\\b|[,;:(]|\\.(?:\\s|$)|\\s*$)";
+        const patterns = type === 'income'
+            ? [new RegExp(`\\bfrom\\s+(?:vpa\\s+)?${name}${stop}`, 'gi')]
+            : [
+                new RegExp(`\\b(?:to|at|towards)\\s+(?:vpa\\s+)?${name}${stop}`, 'gi'),
+                new RegExp(`;\\s*${name}\\s+credited`, 'gi'),
+                new RegExp(`\\binfo:?\\s*${name}${stop}`, 'gi')
+            ];
+        for (const pattern of patterns) {
+            for (const match of text.matchAll(pattern)) {
+                let party = match[1].trim().replace(/[.\-\s]+$/, '');
+                // Skip the user's own account ("to your A/c XX1234", "from HDFC Bank A/C *1234").
+                if (!party || /\b(a\/?c|acct|account|bank|card|your|you)\b|x{2,}|\*\d|^\d+$/i.test(party)) continue;
+                if (party.includes('@')) party = party.split('@')[0].replace(/[._]+/g, ' ');
+                if (party === party.toUpperCase() || party === party.toLowerCase()) {
+                    party = party.toLowerCase().replace(/\b[a-z]/g, char => char.toUpperCase());
+                }
+                return party;
+            }
+        }
+        return '';
+    }
+
+    function parseSmsDate(text) {
+        const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        let parts = null;
+        let match = text.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+        if (match) parts = [Number(match[1]), Number(match[2]), Number(match[3])];
+        if (!parts && (match = text.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/))) {
+            parts = [Number(match[3]), Number(match[2]), Number(match[1])];
+        }
+        if (!parts && (match = text.match(/\b(\d{1,2})[- ]?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[- ,']*(\d{2,4})\b/i))) {
+            parts = [Number(match[3]), months.indexOf(match[2].toLowerCase()) + 1, Number(match[1])];
+        }
+        if (!parts) return Date.now();
+
+        const [rawYear, month, day] = parts;
+        const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+        const date = new Date(year, month - 1, day, 12);
+        const now = Date.now();
+        const valid = date.getMonth() === month - 1 && date.getDate() === day
+            && date.getTime() <= now + 86400000 && date.getTime() > now - 2 * 365 * 86400000;
+        if (!valid) return now;
+        return formatInputDate(date) === formatInputDate(now) ? now : date.getTime();
     }
 
     function autoCategory(selected, text) {
@@ -3423,7 +3523,21 @@
     function setSliderHeight() {
         const active = $(`tab${state.currentTab}`);
         if (!active) return;
+        fitMiniValues(active);
         $('mainSlider').style.height = `${active.offsetHeight}px`;
+    }
+
+    // Shrinks tile and stat values that don't fit their box (long amounts, narrow phones, large system fonts).
+    function fitMiniValues(root) {
+        root.querySelectorAll('.mini-value, .stat-value').forEach(element => {
+            element.style.fontSize = '';
+            if (!element.clientWidth) return;
+            let size = parseFloat(getComputedStyle(element).fontSize);
+            while (element.scrollWidth > element.clientWidth && size > 10) {
+                size -= 1;
+                element.style.fontSize = `${size}px`;
+            }
+        });
     }
 
     function showToast(message) {
