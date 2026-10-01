@@ -77,11 +77,12 @@ index.html      UI layout, styles and modals
 app.js          All app logic (state, rendering, vehicle stats, Fuelio import, receipts)
 sw.js           Service worker that caches the app and Chart.js for offline use
 manifest.json   PWA manifest
-favicon.ico     App icon
+favicon.ico     Browser tab icon
+icons/          App icons: icon.svg is the source; the PNGs (192, 512, 180 for iOS) are rendered from it
 ```
 
 Charts use [Chart.js](https://www.chartjs.org/), loaded from jsDelivr and cached by the service worker after the first online visit.
 
 ## Releasing an update
 
-`sw.js` serves the app's own files from its cache. After changing `app.js` or `index.html`, bump `CACHE` in `sw.js` (e.g. `expense-cache-v5` → `expense-cache-v6`) so installed copies download the new version.
+`sw.js` serves the app's own files from its cache. After changing `app.js` or `index.html`, bump `CACHE` in `sw.js` (e.g. `expense-cache-v6` → `expense-cache-v7`) so installed copies download the new version.

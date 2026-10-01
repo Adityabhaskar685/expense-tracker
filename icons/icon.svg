@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#10b981"/>
+  <!-- Glyph stays inside the central 80% circle so Android's maskable crop never clips it. -->
+  <g fill="none" stroke="#fff" stroke-width="40" stroke-linejoin="bevel" transform="translate(0 -36)">
+    <path d="M172 196H340M172 256H340"/>
+    <path d="M172 196H244A62 62 0 0 1 244 320H186L306 432"/>
+  </g>
+</svg>

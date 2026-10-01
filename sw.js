@@ -1,4 +1,4 @@
-const CACHE = "expense-cache-v5";
+const CACHE = "expense-cache-v6";
 const CDN_CACHE = "expense-cdn-v1";
 
 const coreUrl = path => new URL(path, self.registration.scope).toString();
@@ -8,7 +8,11 @@ const CORE_FILES = [
   coreUrl("./index.html"),
   coreUrl("./app.js"),
   coreUrl("./manifest.json"),
-  coreUrl("./favicon.ico")
+  coreUrl("./favicon.ico"),
+  coreUrl("./icons/icon.svg"),
+  coreUrl("./icons/icon-192.png"),
+  coreUrl("./icons/icon-512.png"),
+  coreUrl("./icons/apple-touch-icon.png")
 ];
 
 self.addEventListener("install", event => {
