@@ -1,4 +1,4 @@
-const CACHE = "expense-cache-v3";
+const CACHE = "expense-cache-v5";
 const CDN_CACHE = "expense-cdn-v1";
 
 const coreUrl = path => new URL(path, self.registration.scope).toString();
@@ -52,8 +52,10 @@ self.addEventListener("fetch", event => {
 async function networkFirst(request, fallbackUrl) {
   try {
     const response = await fetch(request);
-    const cache = await caches.open(CACHE);
-    cache.put(fallbackUrl, response.clone());
+    if (response.ok) {
+      const cache = await caches.open(CACHE);
+      cache.put(fallbackUrl, response.clone());
+    }
     return response;
   } catch {
     return caches.match(fallbackUrl);

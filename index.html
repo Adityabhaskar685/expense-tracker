@@ -28,6 +28,8 @@
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
             --card-radius: 20px;
             --nav-height: 75px;
+            --tabs: 6;
+            --warn: #f59e0b;
         }
 
         body.dark {
@@ -43,6 +45,10 @@
             --header-bg: #27272a;
             --header-text: #4ade80;
             --shadow: none;
+        }
+
+        [hidden] {
+            display: none !important;
         }
 
         * {
@@ -120,16 +126,16 @@
             overflow: hidden;
             transform: translate3d(0, 0, 0);
             transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.12s ease;
-            width: 500%;
+            width: calc(var(--tabs) * 100%);
             will-change: transform, height;
         }
 
         .tab-content {
-            flex: 0 0 20%;
+            flex: 0 0 calc(100% / var(--tabs));
             min-width: 0;
             overflow-x: hidden;
             padding: 16px 16px calc(var(--nav-height) + 24px + env(safe-area-inset-bottom));
-            width: 20%;
+            width: calc(100% / var(--tabs));
         }
 
         .container {
@@ -799,6 +805,171 @@
             max-width: 100%;
         }
 
+        .check-row {
+            align-items: center;
+            color: var(--text-main);
+            display: flex;
+            font-size: 14px;
+            font-weight: 600;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .check-row input {
+            accent-color: var(--accent);
+            height: 20px;
+            width: 20px;
+        }
+
+        .field-row {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .field-row.three {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .field-row .fi {
+            padding: 12px 10px;
+        }
+
+        .action-row {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            margin-bottom: 16px;
+        }
+
+        .action-row .btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            font-size: 13px;
+            margin: 0;
+            padding: 10px 6px;
+        }
+
+        .badge {
+            border-radius: 999px;
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 800;
+            margin-left: 6px;
+            padding: 2px 8px;
+        }
+
+        .badge.overdue {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .badge.soon {
+            background: var(--warn);
+            color: #fff;
+        }
+
+        .badge.muted {
+            background: var(--bg-input);
+            color: var(--text-muted);
+        }
+
+        .receipt-buttons {
+            display: grid;
+            gap: 8px;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .receipt-buttons .btn {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            font-size: 14px;
+            margin: 0;
+            min-height: 44px;
+            padding: 10px;
+        }
+
+        .receipt-preview {
+            align-items: center;
+            background: var(--bg-input);
+            border-radius: 12px;
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+            padding: 8px;
+        }
+
+        .receipt-preview img {
+            border-radius: 8px;
+            cursor: zoom-in;
+            height: 64px;
+            object-fit: cover;
+            width: 64px;
+        }
+
+        .receipt-preview span {
+            color: var(--text-muted);
+            flex: 1;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .receipt-full {
+            border-radius: 12px;
+            display: block;
+            margin-bottom: 8px;
+            max-height: 70vh;
+            object-fit: contain;
+            width: 100%;
+        }
+
+        .table-wrap {
+            margin: 0 -4px;
+            overflow-x: auto;
+        }
+
+        .stat-table {
+            border-collapse: collapse;
+            font-size: 12px;
+            min-width: 100%;
+            white-space: nowrap;
+        }
+
+        .stat-table th,
+        .stat-table td {
+            border-bottom: 1px solid var(--border);
+            padding: 8px 6px;
+            text-align: right;
+        }
+
+        .stat-table th:first-child,
+        .stat-table td:first-child {
+            text-align: left;
+        }
+
+        .stat-table th {
+            color: var(--text-muted);
+            font-weight: 800;
+        }
+
+        .stat-table td {
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        .stat-table tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .chart-caption {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+            margin: 4px 0 8px;
+        }
+
         @media (max-width: 380px) {
             .tab-content {
                 padding-left: 12px;
@@ -825,6 +996,10 @@
                 border-radius: 8px;
                 min-height: 40px;
             }
+
+            .nav-label {
+                font-size: 10px;
+            }
         }
     </style>
 </head>
@@ -846,6 +1021,14 @@
                         <div class="stat-label">Today</div>
                         <div class="stat-value" id="statToday">₹0</div>
                     </div>
+                </div>
+
+                <div class="card" id="homeReminderCard" hidden>
+                    <div class="card-title">
+                        <span>Vehicle Reminders</span>
+                        <button class="btn btn-s btn-inline" data-tab="4" type="button" style="margin:0;font-size:13px;color:var(--accent)">Open →</button>
+                    </div>
+                    <div id="homeReminders"></div>
                 </div>
 
                 <div class="card">
@@ -941,7 +1124,62 @@
             </div>
         </section>
 
-        <section class="tab-content" id="tab4" aria-label="Settings">
+        <section class="tab-content" id="tab4" aria-label="Vehicle">
+            <div class="container">
+                <div class="chip-row" id="vehicleChips"></div>
+                <div id="vehicleEmpty" class="card" hidden>
+                    <div class="card-title">Track your vehicle</div>
+                    <div class="empty" style="text-align:left;padding:0 0 8px">Log fill-ups, service and other costs to see mileage, cost per km and upcoming reminders.</div>
+                    <button class="btn btn-p" data-action="open-vehicle" type="button">＋ Add Vehicle</button>
+                    <button class="btn btn-s" data-action="import-fuelio" type="button" style="border:1px solid var(--border)">⛽ Import from Fuelio</button>
+                </div>
+                <div id="vehicleContent" hidden>
+                    <div class="stats">
+                        <div class="stat g1">
+                            <div class="stat-label">Avg Mileage</div>
+                            <div class="stat-value" id="vehEconomy">–</div>
+                        </div>
+                        <div class="stat g2">
+                            <div class="stat-label">Cost / km</div>
+                            <div class="stat-value" id="vehCostKm">–</div>
+                        </div>
+                    </div>
+                    <div class="action-row">
+                        <button class="btn" data-action="open-fuel" type="button">⛽ Fill-up</button>
+                        <button class="btn" data-action="open-vcost" type="button">🔧 Cost</button>
+                        <button class="btn" data-action="open-reminder" type="button">⏰ Reminder</button>
+                    </div>
+                    <div class="chip-row" id="vehicleViews"></div>
+                    <div data-vview="overview">
+                        <div class="card">
+                            <div class="card-title">
+                                <span id="vehTitle">Overview</span>
+                                <button class="icon-btn" data-action="vehicle-edit" type="button" aria-label="Edit vehicle">✎</button>
+                            </div>
+                            <div class="mini-grid" id="vehSummary"></div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">
+                                <span>Reminders</span>
+                                <button class="icon-btn" data-action="open-reminder" type="button" aria-label="Add reminder">＋</button>
+                            </div>
+                            <div id="vehReminders"></div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">Log</div>
+                            <div id="vehLog"></div>
+                        </div>
+                    </div>
+                    <div data-vview="fuel" id="vviewFuel" hidden></div>
+                    <div data-vview="costs" id="vviewCosts" hidden></div>
+                    <div data-vview="monthly" id="vviewMonthly" hidden></div>
+                    <div data-vview="yearly" id="vviewYearly" hidden></div>
+                    <div data-vview="compare" id="vviewCompare" hidden></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="tab-content" id="tab5" aria-label="Settings">
             <div class="container">
                 <div class="card">
                     <div class="card-title">App Settings</div>
@@ -952,6 +1190,7 @@
                     <div class="card-title">Data</div>
                     <button class="btn btn-s" data-action="export-json" type="button" style="text-align:left;border:1px solid var(--border);margin-bottom:8px">📥 Export Backup</button>
                     <button class="btn btn-s" data-action="import-json" type="button" style="text-align:left;border:1px solid var(--border);margin-bottom:8px">📤 Import Backup</button>
+                    <button class="btn btn-s" data-action="import-fuelio" type="button" style="text-align:left;border:1px solid var(--border);margin-bottom:8px">⛽ Import from Fuelio (CSV)</button>
                     <button class="btn btn-s" data-action="open-sync" type="button" style="text-align:left;border:1px solid var(--border)">☁️ Cloud Sync</button>
                 </div>
             </div>
@@ -960,6 +1199,7 @@
 
     <div class="fab-container">
         <div id="fabSecondaryGroup" class="fab-group hidden">
+            <button class="fab secondary" data-action="open-fuel" type="button" aria-label="Log fill-up">⛽</button>
             <button class="fab secondary" data-action="open-parse" type="button" aria-label="Parse SMS">📧</button>
             <button class="fab secondary" data-action="open-income" type="button" aria-label="Add income">💰</button>
             <button class="fab secondary" data-action="open-quick" type="button" aria-label="Quick add">⚡</button>
@@ -986,6 +1226,10 @@
             <span class="nav-label">Plan</span>
         </button>
         <button class="nav-item" data-tab="4" type="button">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 17v-4l2.5-6h13l2.5 6v4z"></path><circle cx="7.5" cy="17" r="2"></circle><circle cx="16.5" cy="17" r="2"></circle><line x1="3" y1="13" x2="21" y2="13"></line></svg></span>
+            <span class="nav-label">Vehicle</span>
+        </button>
+        <button class="nav-item" data-tab="5" type="button">
             <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1"></path></svg></span>
             <span class="nav-label">Settings</span>
         </button>
@@ -1000,6 +1244,7 @@
             <div class="fg"><label class="fl" for="txMerchant">Merchant</label><input class="fi" id="txMerchant" placeholder="Description" autocomplete="off"></div>
             <div class="fg"><label class="fl" for="txCategory">Category</label><select class="fs" id="txCategory"></select></div>
             <div class="fg"><label class="fl" for="txPayment">Payment</label><select class="fs" id="txPayment"><option value="upi">UPI</option><option value="card">Card</option><option value="cash">Cash</option><option value="auto">Auto</option></select></div>
+            <div class="fg"><label class="fl">Bill / Receipt</label><div class="receipt-field" id="txReceipt"></div></div>
             <button class="btn btn-p" id="saveTxBtn" type="button">Save Transaction</button>
             <button class="btn btn-s" data-close="txModal" type="button">Cancel</button>
         </div>
@@ -1110,6 +1355,95 @@
             </div>
         </div>
     </div>
+
+    <div class="modal" id="vehicleModal" role="dialog" aria-modal="true" aria-labelledby="vehicleModalTitle">
+        <div class="modal-content">
+            <h3 class="card-title" id="vehicleModalTitle">Add Vehicle</h3>
+            <input type="hidden" id="vehicleId">
+            <div class="fg"><label class="fl" for="vehicleName">Name</label><input class="fi" id="vehicleName" placeholder="e.g. Swift, Activa" autocomplete="off"></div>
+            <div class="field-row">
+                <div class="fg"><label class="fl" for="vehicleType">Type</label><select class="fs" id="vehicleType"></select></div>
+                <div class="fg"><label class="fl" for="vehicleFuel">Fuel</label><select class="fs" id="vehicleFuel"></select></div>
+            </div>
+            <div class="fg"><label class="fl" for="vehicleStartOdo">Current odometer (km)</label><input type="number" class="fi" id="vehicleStartOdo" placeholder="Optional" inputmode="decimal"></div>
+            <button class="btn btn-p" id="saveVehicleBtn" type="button">Save Vehicle</button>
+            <button class="btn btn-s" id="deleteVehicleBtn" type="button" style="color:var(--danger)" hidden>Delete Vehicle</button>
+            <button class="btn btn-s" data-close="vehicleModal" type="button">Cancel</button>
+        </div>
+    </div>
+
+    <div class="modal" id="fuelModal" role="dialog" aria-modal="true" aria-labelledby="fuelModalTitle">
+        <div class="modal-content">
+            <h3 class="card-title" id="fuelModalTitle">Log Fill-up</h3>
+            <input type="hidden" id="fuelId">
+            <div class="fg"><label class="fl" for="fuelVehicle">Vehicle</label><select class="fs" id="fuelVehicle"></select></div>
+            <div class="field-row">
+                <div class="fg"><label class="fl" for="fuelDate">Date</label><input type="text" class="fi js-date-input" id="fuelDate" placeholder="Today" readonly></div>
+                <div class="fg"><label class="fl" for="fuelOdo">Odometer (km)</label><input type="number" class="fi" id="fuelOdo" inputmode="decimal"></div>
+            </div>
+            <div class="field-row three">
+                <div class="fg"><label class="fl" for="fuelQty" id="fuelQtyLabel">Litres</label><input type="number" class="fi" id="fuelQty" step="0.01" inputmode="decimal"></div>
+                <div class="fg"><label class="fl" for="fuelPrice" id="fuelPriceLabel">₹ / L</label><input type="number" class="fi" id="fuelPrice" step="0.01" inputmode="decimal"></div>
+                <div class="fg"><label class="fl" for="fuelTotal">Total ₹</label><input type="number" class="fi" id="fuelTotal" step="0.01" inputmode="decimal"></div>
+            </div>
+            <label class="check-row"><input type="checkbox" id="fuelFull" checked> Full tank</label>
+            <label class="check-row"><input type="checkbox" id="fuelMissed"> Missed previous fill-up</label>
+            <div class="fg"><label class="fl" for="fuelStation">Station</label><input class="fi" id="fuelStation" placeholder="Optional" autocomplete="off"></div>
+            <div class="fg"><label class="fl" for="fuelPayment">Payment</label><select class="fs" id="fuelPayment"><option value="upi">UPI</option><option value="card">Card</option><option value="cash">Cash</option></select></div>
+            <div class="fg"><label class="fl">Bill / Receipt</label><div class="receipt-field" id="fuelReceipt"></div></div>
+            <button class="btn btn-p" id="saveFuelBtn" type="button">Save Fill-up</button>
+            <button class="btn btn-s" data-close="fuelModal" type="button">Cancel</button>
+        </div>
+    </div>
+
+    <div class="modal" id="vcostModal" role="dialog" aria-modal="true" aria-labelledby="vcostModalTitle">
+        <div class="modal-content">
+            <h3 class="card-title" id="vcostModalTitle">Add Vehicle Cost</h3>
+            <input type="hidden" id="vcostId">
+            <div class="fg"><label class="fl" for="vcostVehicle">Vehicle</label><select class="fs" id="vcostVehicle"></select></div>
+            <div class="field-row">
+                <div class="fg"><label class="fl" for="vcostType">Type</label><select class="fs" id="vcostType"></select></div>
+                <div class="fg"><label class="fl" for="vcostAmount">Amount ₹</label><input type="number" class="fi" id="vcostAmount" inputmode="decimal"></div>
+            </div>
+            <div class="fg"><label class="fl" for="vcostTitle">Description</label><input class="fi" id="vcostTitle" placeholder="Optional" autocomplete="off"></div>
+            <div class="field-row">
+                <div class="fg"><label class="fl" for="vcostDate">Date</label><input type="text" class="fi js-date-input" id="vcostDate" placeholder="Today" readonly></div>
+                <div class="fg"><label class="fl" for="vcostOdo">Odometer (km)</label><input type="number" class="fi" id="vcostOdo" placeholder="Optional" inputmode="decimal"></div>
+            </div>
+            <div class="fg"><label class="fl" for="vcostPayment">Payment</label><select class="fs" id="vcostPayment"><option value="upi">UPI</option><option value="card">Card</option><option value="cash">Cash</option></select></div>
+            <div class="fg"><label class="fl">Bill / Receipt</label><div class="receipt-field" id="vcostReceipt"></div></div>
+            <button class="btn btn-p" id="saveVcostBtn" type="button">Save Cost</button>
+            <button class="btn btn-s" data-close="vcostModal" type="button">Cancel</button>
+        </div>
+    </div>
+
+    <div class="modal" id="reminderModal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <h3 class="card-title">New Reminder</h3>
+            <div class="fg"><label class="fl" for="reminderTitle">Title</label><input class="fi" id="reminderTitle" placeholder="e.g. Oil change, Insurance renewal" autocomplete="off"></div>
+            <div class="field-row">
+                <div class="fg"><label class="fl" for="reminderDate">Due date</label><input type="text" class="fi js-date-input" id="reminderDate" placeholder="Optional" readonly></div>
+                <div class="fg"><label class="fl" for="reminderOdo">Due at km</label><input type="number" class="fi" id="reminderOdo" placeholder="Optional" inputmode="decimal"></div>
+            </div>
+            <div class="field-row">
+                <div class="fg"><label class="fl" for="reminderRepeatMonths">Repeat (months)</label><input type="number" class="fi" id="reminderRepeatMonths" placeholder="No" inputmode="numeric"></div>
+                <div class="fg"><label class="fl" for="reminderRepeatKm">Repeat (km)</label><input type="number" class="fi" id="reminderRepeatKm" placeholder="No" inputmode="numeric"></div>
+            </div>
+            <button class="btn btn-p" id="saveReminderBtn" type="button">Create</button>
+            <button class="btn btn-s" data-close="reminderModal" type="button">Cancel</button>
+        </div>
+    </div>
+
+    <div class="modal" id="receiptModal" role="dialog" aria-modal="true" aria-label="Bill image">
+        <div class="modal-content">
+            <h3 class="card-title">Bill / Receipt</h3>
+            <img id="receiptImage" class="receipt-full" alt="Bill image">
+            <button class="btn btn-s" data-close="receiptModal" type="button">Close</button>
+        </div>
+    </div>
+
+    <input type="file" id="receiptCameraInput" accept="image/*" capture="environment" hidden>
+    <input type="file" id="receiptFileInput" accept="image/*" hidden>
 
     <div class="toast" id="toast"></div>
 </body>
