@@ -85,4 +85,4 @@ Charts use [Chart.js](https://www.chartjs.org/), loaded from jsDelivr and cached
 
 ## Releasing an update
 
-`sw.js` serves the app's own files from its cache. After changing `app.js` or `index.html`, bump `CACHE` in `sw.js` (e.g. `expense-cache-v6` → `expense-cache-v7`) so installed copies download the new version.
+`sw.js` serves the app's own files from its cache. After changing `app.js` or `index.html`, bump `CACHE` in `sw.js` (e.g. `expense-cache-v7` → `expense-cache-v8`) so installed copies download the new version.

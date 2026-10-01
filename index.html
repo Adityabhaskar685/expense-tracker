@@ -743,10 +743,26 @@
         .calendar-total {
             color: var(--accent);
             font-size: 10px;
+            font-weight: 800;
+            letter-spacing: -0.3px;
             margin-top: 3px;
+            min-height: 12px;
             overflow: hidden;
-            text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .calendar-day {
+            color: var(--text-main);
+            width: 100%;
+        }
+
+        .calendar-day.selected {
+            background: var(--accent-light);
+            border-color: var(--accent);
+        }
+
+        .calendar-day.today {
+            border-color: var(--accent);
         }
 
         .date-day {
@@ -1062,6 +1078,7 @@
                     <select id="categoryFilter" class="compact-select" aria-label="Filter by category"></select>
                 </div>
                 <div class="chip-row" id="periodChips"></div>
+                <div class="calendar-toolbar" id="historyMonthNav" hidden></div>
                 <div class="filter-summary" id="historySummary"></div>
                 <div class="card">
                     <div class="card-title">Income</div>
@@ -1086,24 +1103,11 @@
                         <option value="3">3 months</option>
                         <option value="6" selected>6 months</option>
                         <option value="12">12 months</option>
+                        <option value="0">All time</option>
                     </select>
                 </div>
-                <div class="card">
-                    <div class="card-title">Spending Trend</div>
-                    <canvas id="chartTrend"></canvas>
-                </div>
-                <div class="card">
-                    <div class="card-title">Income vs Expense</div>
-                    <canvas id="chartIncomeExpense"></canvas>
-                </div>
-                <div class="card">
-                    <div class="card-title">Category Breakdown</div>
-                    <canvas id="chartCat"></canvas>
-                </div>
-                <div class="card">
-                    <div class="card-title">Insights</div>
-                    <div id="insightsContent" style="font-size:14px;line-height:1.6;color:var(--text-muted)"></div>
-                </div>
+                <div class="chip-row" id="analysisViews"></div>
+                <div id="analysisContent"></div>
             </div>
         </section>
 
@@ -1323,7 +1327,9 @@
                 <div id="calTitle" style="font-weight:800;text-align:center"></div>
                 <button class="btn btn-s" data-action="calendar-next" type="button">→</button>
             </div>
+            <div class="filter-summary" id="calendarMonthTotal" style="margin:0 2px 10px"></div>
             <div id="calendarGrid" class="calendar-grid"></div>
+            <div id="calendarDayList" style="margin-top:12px"></div>
             <button class="btn btn-s" data-close="calendarModal" type="button">Close</button>
         </div>
     </div>

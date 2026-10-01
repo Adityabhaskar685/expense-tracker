@@ -85,8 +85,9 @@
         vehicleLogLimit: 30,
         vehicleView: 'overview',
         receipt: { field: '', existingId: '', blob: null, removed: false, previewUrl: '' },
-        filters: { period: 'month', search: '', category: 'all' },
+        filters: { period: 'month', search: '', category: 'all', month: startOfMonth(new Date()) },
         chartMonths: 6,
+        analysisView: 'overview',
         charts: {},
         currentTab: 0,
         fabOpen: false,
@@ -96,6 +97,7 @@
         vcostMode: 'add',
         txRenderLimit: 100,
         calendarDate: new Date(),
+        calendarDay: 0,
         deferredPrompt: null,
         heightRaf: 0,
         lastScrollY: 0,
@@ -162,7 +164,8 @@
             render(1);
         });
         $('chartRange').addEventListener('change', event => {
-            state.chartMonths = Number(event.target.value) || 6;
+            const months = Number(event.target.value);
+            state.chartMonths = Number.isFinite(months) ? months : 6;
             renderAnalysis();
         });
 
@@ -222,6 +225,10 @@
 
         const periodButton = event.target.closest('[data-period]');
         if (periodButton) {
+            // Re-entering "Month" starts from the current month again.
+            if (periodButton.dataset.period === 'month' && state.filters.period !== 'month') {
+                state.filters.month = startOfMonth(new Date());
+            }
             state.filters.period = periodButton.dataset.period;
             state.txRenderLimit = 100;
             render(1);
@@ -240,6 +247,10 @@
         const { action, id } = actionButton.dataset;
         const actions = {
             'open-calendar': openCalendarView,
+            'calendar-day': () => {
+                state.calendarDay = Number(id);
+                renderCalendar();
+            },
             'calendar-prev': () => changeCalendarMonth(-1),
             'calendar-next': () => changeCalendarMonth(1),
             'open-budget': () => openModal('budgetModal'),
@@ -276,6 +287,11 @@
             'open-reminder': openReminderModal,
             'reminder-done': () => completeReminder(id),
             'reminder-delete': () => deleteReminder(id),
+            'analysis-view': () => {
+                state.analysisView = id;
+                renderAnalysis();
+            },
+            'history-month': () => changeHistoryMonth(Number(id)),
             'vehicle-view': () => {
                 state.vehicleView = id;
                 renderVehicle();
@@ -607,12 +623,17 @@
         populateHistoryCategoryFilter();
 
         let periodStart = 0;
+        let periodEnd = Infinity;
         if (state.filters.period === 'today') {
             periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         } else if (state.filters.period === 'month') {
-            periodStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+            const month = state.filters.month;
+            periodStart = month.getTime();
+            periodEnd = new Date(month.getFullYear(), month.getMonth() + 1, 1).getTime();
         }
-        filtered = filtered.filter(tx => tx.date >= periodStart);
+        const inPeriod = item => item.date >= periodStart && item.date < periodEnd;
+        filtered = filtered.filter(inPeriod);
+        renderHistoryMonthNav();
         if (state.filters.category !== 'all') {
             filtered = filtered.filter(tx => tx.category === state.filters.category);
         }
@@ -632,11 +653,37 @@
         }).join('');
 
         renderIncomeList(state.incomes.filter(income => (
-            income.date >= periodStart && income.source.toLowerCase().includes(state.filters.search)
+            inPeriod(income) && income.source.toLowerCase().includes(state.filters.search)
         )));
         renderHistorySummary(filtered);
         renderTransactionList('txList', filtered, { actions: true, paged: true });
         scheduleSliderHeight();
+    }
+
+    function startOfMonth(date) {
+        return new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+
+    function renderHistoryMonthNav() {
+        const nav = $('historyMonthNav');
+        nav.hidden = state.filters.period !== 'month';
+        if (nav.hidden) return;
+        const month = state.filters.month;
+        const isCurrent = month.getTime() === startOfMonth(new Date()).getTime();
+        nav.innerHTML = `
+            <button class="btn btn-s" data-action="history-month" data-id="-1" type="button" aria-label="Previous month">←</button>
+            <div style="font-weight:800;text-align:center">${escapeHtml(month.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }))}</div>
+            <button class="btn btn-s" data-action="history-month" data-id="1" type="button" aria-label="Next month"${isCurrent ? ' disabled style="opacity:0.3"' : ''}>→</button>
+        `;
+    }
+
+    function changeHistoryMonth(delta) {
+        const month = state.filters.month;
+        const next = new Date(month.getFullYear(), month.getMonth() + delta, 1);
+        if (next > startOfMonth(new Date())) return;
+        state.filters.month = next;
+        state.txRenderLimit = 100;
+        renderHistory();
     }
 
     function populateHistoryCategoryFilter() {
@@ -723,119 +770,388 @@
         `).join('');
     }
 
+    const ANALYSIS_VIEWS = {
+        overview: '📋 Overview',
+        categories: '🏷️ Categories',
+        patterns: '🔍 Patterns',
+        monthly: '📅 Monthly',
+        yearly: '📆 Yearly'
+    };
+
+    const ANALYSIS_CHART_KEYS = ['aTrend', 'aIncomeExpense', 'aCategory', 'aCategoryTrend', 'aWeekday', 'aPayment', 'aNet', 'aYearly'];
+
+    const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#94a3b8', '#84cc16'];
+
+    const INCOME_COLOR = '#10b981';
+    const EXPENSE_COLOR = '#f43f5e';
+
     function renderAnalysis() {
         $('chartRange').value = String(state.chartMonths);
+        if (!ANALYSIS_VIEWS[state.analysisView]) state.analysisView = 'overview';
+        $('analysisViews').innerHTML = Object.entries(ANALYSIS_VIEWS).map(([id, label]) => {
+            const active = id === state.analysisView ? ' active' : '';
+            return `<button class="chip${active}" data-action="analysis-view" data-id="${id}" type="button">${label}</button>`;
+        }).join('');
+
         const range = getAnalysisRange();
-        const insights = getInsights(range.start);
-        $('analysisSummary').textContent = `${range.label} • ${formatCurrency(insights.total)} spent`;
-        $('insightsContent').innerHTML = `
-            • Top spend: <b>${escapeHtml(insights.topName)}</b> (${formatCurrency(insights.topValue)})<br>
-            • Daily avg: <b>${formatCurrency(insights.dailyAverage)}</b><br>
-            • Count: <b>${insights.count}</b>
-        `;
+        const yearly = state.analysisView === 'yearly';
+        $('chartRange').disabled = yearly;
+        $('analysisSummary').textContent = yearly
+            ? 'All years'
+            : `${range.label} • ${formatCurrency(Math.round(sumAmount(rangeItems(state.transactions, range))))} spent`;
 
+        ANALYSIS_CHART_KEYS.forEach(destroyChart);
+        const renderers = {
+            overview: renderAnalysisOverview,
+            categories: renderAnalysisCategories,
+            patterns: renderAnalysisPatterns,
+            monthly: renderAnalysisMonthly,
+            yearly: renderAnalysisYearly
+        };
+        renderers[state.analysisView](range);
         if (!window.Chart) {
-            $('insightsContent').innerHTML += '<br>• Charts need one online load so Chart.js can be cached.';
-            scheduleSliderHeight();
-            return;
+            $('analysisContent').insertAdjacentHTML('afterbegin', '<div class="filter-summary" style="margin:0 2px 12px">Charts need one online load so Chart.js can be cached.</div>');
         }
-
-        const isDark = document.body.classList.contains('dark');
-        Chart.defaults.color = isDark ? '#a1a1aa' : '#6b7280';
-        Chart.defaults.borderColor = isDark ? '#3f3f46' : '#e5e7eb';
-        renderTrendChart(range.months);
-        renderIncomeExpenseChart(range.months);
-        renderCategoryChart(range.start);
         scheduleSliderHeight();
         setTimeout(scheduleSliderHeight, 80);
     }
 
-    function renderTrendChart(months) {
+    // chartMonths 0 means "All time": from the month of the oldest record.
+    function getAnalysisRange() {
         const now = new Date();
-        const labels = [];
-        const data = [];
+        let months = Number(state.chartMonths);
+        if (!months) {
+            const dates = [...state.transactions, ...state.incomes].map(item => item.date);
+            const earliest = dates.length ? new Date(Math.min(...dates)) : now;
+            months = (now.getFullYear() - earliest.getFullYear()) * 12 + now.getMonth() - earliest.getMonth() + 1;
+        }
+        months = clamp(months, 1, 120);
+        const labelFormat = months > 12 ? { month: 'short', year: '2-digit' } : { month: 'short' };
+        const buckets = [];
         for (let i = months - 1; i >= 0; i -= 1) {
             const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-            labels.push(start.toLocaleDateString('en-IN', { month: 'short' }));
-            data.push(state.transactions
-                .filter(tx => tx.date >= start.getTime() && tx.date < end.getTime())
-                .reduce((sum, tx) => sum + tx.amount, 0));
+            buckets.push({
+                start: start.getTime(),
+                end: new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime(),
+                label: start.toLocaleDateString('en-IN', labelFormat),
+                longLabel: start.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+            });
         }
-
-        destroyChart('trend');
-        state.charts.trend = new Chart($('chartTrend').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels,
-                datasets: [{ label: 'Spend', data, backgroundColor: '#10b981', borderRadius: 4 }]
-            },
-            options: {
-                plugins: { legend: { display: false } },
-                responsive: true,
-                scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } }
-            }
-        });
+        let label = `Last ${months} months`;
+        if (!Number(state.chartMonths)) label = 'All time';
+        else if (months === 1) label = 'This month';
+        return { months, start: buckets[0].start, end: buckets[buckets.length - 1].end, buckets, label };
     }
 
-    function renderIncomeExpenseChart(months) {
-        const now = new Date();
-        const labels = [];
-        const expenseData = [];
-        const incomeData = [];
-        for (let i = months - 1; i >= 0; i -= 1) {
-            const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-            labels.push(start.toLocaleDateString('en-IN', { month: 'short' }));
-            expenseData.push(state.transactions
-                .filter(tx => tx.date >= start.getTime() && tx.date < end.getTime())
-                .reduce((sum, tx) => sum + tx.amount, 0));
-            incomeData.push(state.incomes
-                .filter(income => income.date >= start.getTime() && income.date < end.getTime())
-                .reduce((sum, income) => sum + income.amount, 0));
-        }
-
-        destroyChart('incomeExpense');
-        state.charts.incomeExpense = new Chart($('chartIncomeExpense').getContext('2d'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Expense', data: expenseData, borderColor: '#f43f5e', backgroundColor: 'transparent', tension: 0.3 },
-                    { label: 'Income', data: incomeData, borderColor: '#22c55e', backgroundColor: 'transparent', tension: 0.3 }
-                ]
-            },
-            options: {
-                plugins: { legend: { position: 'bottom' } },
-                responsive: true,
-                scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } }
-            }
-        });
+    function rangeItems(list, range) {
+        return list.filter(item => item.date >= range.start && item.date < range.end);
     }
 
-    function renderCategoryChart(start) {
-        const totals = getCategoryTotals(start);
-        const entries = Object.entries(totals).filter(([, value]) => value > 0);
-        const labels = entries.length ? entries.map(([key]) => state.categories[key]?.name || key) : ['No data'];
-        const data = entries.length ? entries.map(([, value]) => value) : [1];
-        const colors = entries.length
-            ? ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#94a3b8']
-            : ['#d1d5db'];
+    function sumAmount(list) {
+        return list.reduce((sum, item) => sum + item.amount, 0);
+    }
 
-        destroyChart('category');
-        state.charts.category = new Chart($('chartCat').getContext('2d'), {
+    function formatSigned(value) {
+        const rounded = Math.round(value);
+        return `${rounded < 0 ? '-' : ''}${formatCurrency(Math.abs(rounded))}`;
+    }
+
+    function groupTotals(list, keyOf) {
+        return list.reduce((acc, item) => {
+            const key = keyOf(item);
+            if (!acc[key]) acc[key] = { total: 0, count: 0 };
+            acc[key].total += item.amount;
+            acc[key].count += 1;
+            return acc;
+        }, {});
+    }
+
+    function doughnutConfig(labels, data) {
+        return {
             type: 'doughnut',
             data: {
                 labels,
                 datasets: [{
                     data,
-                    backgroundColor: colors,
+                    backgroundColor: CHART_COLORS,
                     borderColor: document.body.classList.contains('dark') ? '#27272a' : '#ffffff',
                     borderWidth: 2
                 }]
             },
             options: { plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 } } } } }
+        };
+    }
+
+    function categoryLabel(id) {
+        const category = state.categories[id];
+        return category ? `${category.emoji} ${category.name}` : `❓ ${id}`;
+    }
+
+    function renderAnalysisOverview(range) {
+        const txs = rangeItems(state.transactions, range);
+        const spent = sumAmount(txs);
+        const income = sumAmount(rangeItems(state.incomes, range));
+        const net = income - spent;
+        const days = Math.max(Math.ceil((Math.min(Date.now(), range.end) - range.start) / 86400000), 1);
+        const biggest = txs.reduce((max, tx) => (!max || tx.amount > max.amount ? tx : max), null);
+        const topCategory = Object.entries(groupTotals(txs, tx => tx.category)).sort((a, b) => b[1].total - a[1].total)[0];
+        const notes = [
+            topCategory ? `Top category: ${categoryLabel(topCategory[0])} (${formatCurrency(Math.round(topCategory[1].total))})` : '',
+            biggest ? `Biggest: ${biggest.merchant} on ${formatDisplayDate(biggest.date)}` : ''
+        ].filter(Boolean);
+        const daily = range.months === 1;
+
+        $('analysisContent').innerHTML = `
+            <div class="card">
+                <div class="card-title">Summary</div>
+                ${statTiles([
+                    ['Spent', formatCurrency(Math.round(spent))],
+                    ['Income', formatCurrency(Math.round(income))],
+                    ['Net', formatSigned(net)],
+                    ['Savings rate', income ? `${formatNumber((net / income) * 100, 0)}%` : '–'],
+                    ['Daily avg', formatCurrency(Math.round(spent / days))],
+                    ['Monthly avg', formatCurrency(Math.round(spent / range.months))],
+                    ['Transactions', String(txs.length)],
+                    ['Avg / txn', txs.length ? formatCurrency(Math.round(spent / txs.length)) : '–'],
+                    ['Biggest', biggest ? formatCurrency(biggest.amount) : '–']
+                ])}
+                ${notes.length ? `<div class="chart-caption" style="margin:12px 0 0">${notes.map(escapeHtml).join('<br>')}</div>` : ''}
+            </div>
+            <div class="card">
+                <div class="card-title">${daily ? 'Daily Spending' : 'Spending Trend'}</div>
+                <canvas id="achartTrend"></canvas>
+            </div>
+            <div class="card">
+                <div class="card-title">Income vs Expense</div>
+                <canvas id="achartIncomeExpense"></canvas>
+            </div>
+        `;
+
+        let trendLabels;
+        let trendData;
+        if (daily) {
+            const now = new Date();
+            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            trendLabels = Array.from({ length: daysInMonth }, (_, i) => String(i + 1));
+            trendData = Array(daysInMonth).fill(0);
+            txs.forEach(tx => {
+                trendData[new Date(tx.date).getDate() - 1] += tx.amount;
+            });
+        } else {
+            trendLabels = range.buckets.map(bucket => bucket.label);
+            trendData = range.buckets.map(bucket => sumAmount(rangeItems(txs, bucket)));
+        }
+        makeChart('aTrend', 'achartTrend', barChartConfig(trendLabels, [
+            { label: 'Spent', data: trendData.map(Math.round), backgroundColor: '#10b981' }
+        ]));
+        makeChart('aIncomeExpense', 'achartIncomeExpense', barChartConfig(range.buckets.map(bucket => bucket.label), [
+            { label: 'Income', data: range.buckets.map(bucket => Math.round(sumAmount(rangeItems(state.incomes, bucket)))), backgroundColor: INCOME_COLOR },
+            { label: 'Expense', data: range.buckets.map(bucket => Math.round(sumAmount(rangeItems(txs, bucket)))), backgroundColor: EXPENSE_COLOR }
+        ]));
+    }
+
+    function renderAnalysisCategories(range) {
+        const txs = rangeItems(state.transactions, range);
+        const grand = sumAmount(txs);
+        const entries = Object.entries(groupTotals(txs, tx => tx.category)).sort((a, b) => b[1].total - a[1].total);
+        const top = entries.slice(0, 8);
+        const rest = entries.slice(8).reduce((sum, [, value]) => sum + value.total, 0);
+        const showTrend = range.months > 1 && entries.length > 0;
+
+        $('analysisContent').innerHTML = `
+            <div class="card">
+                <div class="card-title">Category Breakdown</div>
+                ${entries.length ? '<canvas id="achartCategory" style="margin-bottom:12px"></canvas>' : ''}
+                ${statTable(['Category', 'Txns', 'Total', 'Avg/mo', 'Budget', 'Share'], entries.map(([id, value]) => {
+                    const perMonth = value.total / range.months;
+                    const budget = Number(state.budgets[id] || 0);
+                    return [
+                        categoryLabel(id),
+                        String(value.count),
+                        formatNumber(Math.round(value.total)),
+                        formatNumber(Math.round(perMonth)),
+                        budget > 0 ? `${formatNumber((perMonth / budget) * 100, 0)}%` : '–',
+                        `${formatNumber((value.total / grand) * 100, 1)}%`
+                    ];
+                }))}
+                ${entries.length ? '<div class="chart-caption" style="margin:10px 0 0">Budget = average monthly spend as a share of the category\'s monthly budget.</div>' : ''}
+            </div>
+            ${showTrend ? `
+                <div class="card">
+                    <div class="card-title">Top Categories by Month</div>
+                    <canvas id="achartCategoryTrend"></canvas>
+                </div>
+            ` : ''}
+        `;
+        if (!entries.length) return;
+
+        makeChart('aCategory', 'achartCategory', doughnutConfig(
+            [...top.map(([id]) => categoryLabel(id)), ...(rest ? ['Others'] : [])],
+            [...top.map(([, value]) => Math.round(value.total)), ...(rest ? [Math.round(rest)] : [])]
+        ));
+        if (!showTrend) return;
+        const trendIds = entries.slice(0, 5).map(([id]) => id);
+        const datasets = trendIds.map((id, i) => ({
+            label: state.categories[id]?.name || id,
+            data: range.buckets.map(bucket => Math.round(sumAmount(rangeItems(txs, bucket).filter(tx => tx.category === id)))),
+            backgroundColor: CHART_COLORS[i]
+        }));
+        if (entries.length > 5) {
+            datasets.push({
+                label: 'Others',
+                data: range.buckets.map(bucket => Math.round(sumAmount(rangeItems(txs, bucket).filter(tx => !trendIds.includes(tx.category))))),
+                backgroundColor: '#94a3b8'
+            });
+        }
+        makeChart('aCategoryTrend', 'achartCategoryTrend', barChartConfig(range.buckets.map(bucket => bucket.label), datasets, true));
+    }
+
+    function renderAnalysisPatterns(range) {
+        const txs = rangeItems(state.transactions, range);
+        const grand = sumAmount(txs);
+        // Monday-first week; getDay() is Sunday = 0.
+        const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const weekdayTotals = Array(7).fill(0);
+        txs.forEach(tx => {
+            weekdayTotals[(new Date(tx.date).getDay() + 6) % 7] += tx.amount;
         });
+        const busiest = weekdayTotals.indexOf(Math.max(...weekdayTotals));
+        const weekend = weekdayTotals[5] + weekdayTotals[6];
+
+        const payments = Object.entries(groupTotals(txs, tx => (tx.paymentMethod || 'other').toUpperCase()))
+            .sort((a, b) => b[1].total - a[1].total);
+        const merchants = {};
+        txs.forEach(tx => {
+            const key = tx.merchant.trim().toLowerCase();
+            if (!merchants[key]) merchants[key] = { name: tx.merchant.trim(), total: 0, count: 0 };
+            merchants[key].total += tx.amount;
+            merchants[key].count += 1;
+        });
+        const topMerchants = Object.values(merchants).sort((a, b) => b.total - a.total).slice(0, 10);
+
+        $('analysisContent').innerHTML = `
+            <div class="card">
+                <div class="card-title">Spending Habits</div>
+                ${statTiles([
+                    ['Busiest day', grand ? weekdays[busiest] : '–'],
+                    ['Weekend share', grand ? `${formatNumber((weekend / grand) * 100, 0)}%` : '–'],
+                    ['Top payment', payments[0] ? payments[0][0] : '–']
+                ])}
+            </div>
+            <div class="card">
+                <div class="card-title">By Day of Week</div>
+                <canvas id="achartWeekday"></canvas>
+            </div>
+            <div class="card">
+                <div class="card-title">By Payment Method</div>
+                ${payments.length ? '<canvas id="achartPayment" style="margin-bottom:12px"></canvas>' : ''}
+                ${statTable(['Method', 'Txns', 'Total', 'Share'], payments.map(([method, value]) => [
+                    method,
+                    String(value.count),
+                    formatNumber(Math.round(value.total)),
+                    `${formatNumber((value.total / grand) * 100, 1)}%`
+                ]))}
+            </div>
+            <div class="card">
+                <div class="card-title">Top Merchants</div>
+                ${statTable(['Merchant', 'Txns', 'Total'], topMerchants.map(item => [
+                    item.name.length > 28 ? `${item.name.slice(0, 27)}…` : item.name,
+                    String(item.count),
+                    formatNumber(Math.round(item.total))
+                ]))}
+            </div>
+        `;
+        makeChart('aWeekday', 'achartWeekday', barChartConfig(weekdays, [
+            { label: 'Spent', data: weekdayTotals.map(Math.round), backgroundColor: weekdays.map((_, i) => (i >= 5 ? '#8b5cf6' : '#3b82f6')) }
+        ]));
+        if (payments.length) {
+            makeChart('aPayment', 'achartPayment', doughnutConfig(payments.map(([method]) => method), payments.map(([, value]) => Math.round(value.total))));
+        }
+    }
+
+    function renderAnalysisMonthly(range) {
+        const rows = range.buckets.map(bucket => {
+            const txs = rangeItems(state.transactions, bucket);
+            const income = sumAmount(rangeItems(state.incomes, bucket));
+            const spent = sumAmount(txs);
+            return { ...bucket, income, spent, net: income - spent, count: txs.length };
+        });
+        const active = rows.filter(row => row.income || row.spent);
+        const bestSaving = active.reduce((best, row) => (!best || row.net > best.net ? row : best), null);
+        const highestSpend = active.reduce((max, row) => (!max || row.spent > max.spent ? row : max), null);
+
+        $('analysisContent').innerHTML = `
+            <div class="card">
+                <div class="card-title">Highlights</div>
+                ${statTiles([
+                    ['Best savings', bestSaving ? `${bestSaving.label}: ${formatSigned(bestSaving.net)}` : '–'],
+                    ['Highest spend', highestSpend ? `${highestSpend.label}: ${formatCurrency(Math.round(highestSpend.spent))}` : '–'],
+                    ['Avg spend/mo', formatCurrency(Math.round(sumAmount(rows.map(row => ({ amount: row.spent }))) / range.months))]
+                ])}
+            </div>
+            <div class="card">
+                <div class="card-title">Net Savings per Month</div>
+                <canvas id="achartNet"></canvas>
+            </div>
+            <div class="card">
+                <div class="card-title">Month by Month</div>
+                ${statTable(['Month', 'Income', 'Spent', 'Net', 'Txns'], [...active].reverse().map(row => [
+                    row.longLabel,
+                    formatNumber(Math.round(row.income)),
+                    formatNumber(Math.round(row.spent)),
+                    formatSigned(row.net).replace('₹', ''),
+                    String(row.count)
+                ]))}
+            </div>
+        `;
+        makeChart('aNet', 'achartNet', barChartConfig(rows.map(row => row.label), [
+            { label: 'Net', data: rows.map(row => Math.round(row.net)), backgroundColor: rows.map(row => (row.net < 0 ? EXPENSE_COLOR : INCOME_COLOR)) }
+        ]));
+    }
+
+    function renderAnalysisYearly() {
+        const now = new Date();
+        const years = {};
+        const bucket = date => {
+            const year = new Date(date).getFullYear();
+            if (!years[year]) years[year] = { income: 0, spent: 0, count: 0 };
+            return years[year];
+        };
+        state.transactions.forEach(tx => {
+            const item = bucket(tx.date);
+            item.spent += tx.amount;
+            item.count += 1;
+        });
+        state.incomes.forEach(income => {
+            bucket(income.date).income += income.amount;
+        });
+        const list = Object.keys(years).sort();
+
+        $('analysisContent').innerHTML = `
+            <div class="card">
+                <div class="card-title">Income vs Spending by Year</div>
+                ${list.length ? '<canvas id="achartYearly"></canvas>' : '<div class="empty">No data yet</div>'}
+            </div>
+            <div class="card">
+                <div class="card-title">Yearly Summary</div>
+                ${statTable(['Year', 'Income', 'Spent', 'Net', 'Avg/mo', 'Txns'], [...list].reverse().map(year => {
+                    const item = years[year];
+                    const monthsElapsed = Number(year) === now.getFullYear() ? now.getMonth() + 1 : 12;
+                    return [
+                        year,
+                        formatNumber(Math.round(item.income)),
+                        formatNumber(Math.round(item.spent)),
+                        formatSigned(item.income - item.spent).replace('₹', ''),
+                        formatNumber(Math.round(item.spent / monthsElapsed)),
+                        String(item.count)
+                    ];
+                }))}
+            </div>
+        `;
+        makeChart('aYearly', 'achartYearly', barChartConfig(list, [
+            { label: 'Income', data: list.map(year => Math.round(years[year].income)), backgroundColor: INCOME_COLOR },
+            { label: 'Spent', data: list.map(year => Math.round(years[year].spent)), backgroundColor: EXPENSE_COLOR }
+        ]));
     }
 
     function renderPlan() {
@@ -1269,6 +1585,7 @@
 
     function openCalendarView() {
         state.calendarDate = new Date();
+        state.calendarDay = new Date().getDate();
         renderCalendar();
         openModal('calendarModal');
     }
@@ -1276,6 +1593,7 @@
     function changeCalendarMonth(delta) {
         const date = state.calendarDate;
         state.calendarDate = new Date(date.getFullYear(), date.getMonth() + delta, 1);
+        state.calendarDay = 0;
         renderCalendar();
     }
 
@@ -1299,16 +1617,32 @@
         let html = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
             .map(day => `<div class="calendar-head">${day}</div>`).join('');
         for (let i = 0; i < firstDay; i += 1) html += '<div></div>';
+        const today = new Date();
         for (let day = 1; day <= daysInMonth; day += 1) {
             const total = dailyTotals[day] || 0;
+            const selected = day === state.calendarDay ? ' selected' : '';
+            const isToday = year === today.getFullYear() && month === today.getMonth() && day === today.getDate() ? ' today' : '';
             html += `
-                <div class="calendar-day">
+                <button class="calendar-day${selected}${isToday}" data-action="calendar-day" data-id="${day}" type="button"${total ? ` aria-label="${day}: ${escapeAttr(formatCurrency(total))}"` : ''}>
                     <div class="calendar-num">${day}</div>
-                    <div class="calendar-total">${total ? formatCurrency(total) : ''}</div>
-                </div>
+                    <div class="calendar-total">${total ? escapeHtml(formatCompactCurrency(total)) : ''}</div>
+                </button>
             `;
         }
         $('calendarGrid').innerHTML = html;
+
+        const monthTotal = Object.values(dailyTotals).reduce((sum, value) => sum + value, 0);
+        $('calendarMonthTotal').textContent = `Month total: ${formatCurrency(Math.round(monthTotal))}`;
+        // Tapping a day lists its expenses with full amounts.
+        if (!state.calendarDay) {
+            $('calendarDayList').innerHTML = '<div class="date-hint">Tap a day to see its expenses</div>';
+            return;
+        }
+        const dayStart = new Date(year, month, state.calendarDay).getTime();
+        const dayEnd = new Date(year, month, state.calendarDay + 1).getTime();
+        const dayTxs = state.transactions.filter(tx => tx.date >= dayStart && tx.date < dayEnd);
+        $('calendarDayList').innerHTML = `<div class="filter-summary" style="margin:0 0 4px">${escapeHtml(formatDisplayDate(dayStart))} • ${formatCurrency(Math.round(dailyTotals[state.calendarDay] || 0))}</div><div id="calendarDayTxs"></div>`;
+        renderTransactionList('calendarDayTxs', dayTxs, { actions: false });
     }
 
     function openDatePicker(input) {
@@ -3069,33 +3403,6 @@
             }, {});
     }
 
-    function getAnalysisRange() {
-        const months = clamp(Number(state.chartMonths) || 6, 1, 12);
-        const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth() - months + 1, 1).getTime();
-        return {
-            months,
-            start,
-            label: months === 1 ? 'This month' : `Last ${months} months`
-        };
-    }
-
-    function getInsights(start) {
-        const now = new Date();
-        const transactions = state.transactions.filter(tx => tx.date >= start);
-        const totals = getCategoryTotals(start);
-        const highest = Object.entries(totals).sort((a, b) => b[1] - a[1])[0];
-        const total = transactions.reduce((sum, tx) => sum + tx.amount, 0);
-        const dayCount = Math.max(Math.ceil((now.getTime() - start) / 86400000), 1);
-        return {
-            topName: highest ? (state.categories[highest[0]]?.name || highest[0]) : 'None',
-            topValue: highest ? highest[1] : 0,
-            dailyAverage: total / dayCount,
-            count: transactions.length,
-            total
-        };
-    }
-
     function loadMoreTransactions() {
         state.txRenderLimit += 100;
         renderHistory();
@@ -3130,6 +3437,19 @@
     function formatCurrency(value) {
         const number = Number(value) || 0;
         return `₹${number.toLocaleString('en-IN', { maximumFractionDigits: number % 1 ? 2 : 0 })}`;
+    }
+
+    // Fits narrow cells: ₹850, ₹1.2k, ₹12k, ₹1.5L, ₹2.3Cr.
+    function formatCompactCurrency(value) {
+        const number = Math.round(Number(value) || 0);
+        const units = [[1e7, 'Cr'], [1e5, 'L'], [1e3, 'k']];
+        for (const [size, suffix] of units) {
+            if (number >= size) {
+                const scaled = number / size;
+                return `₹${scaled < 10 ? Number(scaled.toFixed(1)) : Math.round(scaled)}${suffix}`;
+            }
+        }
+        return `₹${number}`;
     }
 
     function formatDisplayDate(value) {
